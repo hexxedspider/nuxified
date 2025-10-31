@@ -1,0 +1,13 @@
+**/downloads
+**/env
+.env
+
+ai_config.pkl
+config.pkl
+
+**/logs
+
+femboy.py
+lovebound.py
+slammedbeamer.py
+suicidemane.py
