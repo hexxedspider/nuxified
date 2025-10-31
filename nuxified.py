@@ -18,8 +18,6 @@ logging.getLogger('discord.client').setLevel(logging.WARNING)
 
 XGD_API_KEY = "25ff18ddf60a188f5f2b412db909b8f9"
 
-WEBHOOK='https://discord.com/api/webhooks/1427875903811223612/rnN4EmeB7qRiz2BXRDluea8j0Dcfu4MK4yPWBOp5WZjMo9LdT3ciq0TSCpYQwW5Pe0e2'
-
 zalgo_up = [chr(i) for i in range(0x0300, 0x036F)]
 flip_map = str.maketrans(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890",
@@ -129,12 +127,10 @@ class AIResponder(discord.Client):
                 "nux cuddle <@person>": "sends a cuddling gif with both of you (you and the person you mentioned) pinged",
                 "nux weather <location>": "fetches current weather for the given location",
                 "nux use": "sends a pre-configured image and text response",
-                "nux fakemsg <@user> <text1> | <text2>": "creates a fake discord message from the mentioned user use nux fexample for format",
                 "nux translate <from_lang> <to_lang> <text>": "translates text between languages (e.g., en to fr)",
                 "nux lyrics <artist> - <song>": "fetches lyrics for the specified song"
             },
             "utilities": {
-                "nux changepfp": "changes your profile picture, attach an image (owner only)",
                 "nux id": "show your user id and info",
                 "nux dumpdm": "dump recent dm history to a file",
                 "nux shorten": "shorten urls using a url shortener",
@@ -205,7 +201,6 @@ class AIResponder(discord.Client):
                 "nux rule34 <search> <number>": "again, similar to reddit but pulls from a different source"
             },
             "misc": {
-                "plans": "add a command that shows you what subreddits it pulls from",
                 "existing": "use nux nsfwlist to see the options",
             }
         }
@@ -267,7 +262,6 @@ class AIResponder(discord.Client):
         "nux nsfw": self.cmd_nsfw,
         "nux hhelp": self.cmd_nsfwhelp,
         "nux spacedhelp": self.cmd_spacedhelp,
-        "nux caption": self.cmd_caption,
         "nux facts": self.cmd_facts,
         "nux scroll": self.cmd_scroll,
         "nux pornhub": self.cmd_pornhub,
@@ -285,7 +279,6 @@ class AIResponder(discord.Client):
         "nux restart": self.cmd_restart,
         "nux simulate": self.cmd_simulate,
         "nux print": self.cmd_print,
-        "nux fakemsg": self.cmd_fakemsg,
         "nux fexample": self.cmd_fexample,
         "nux greyscale": self.cmd_greyscale,
         "nux translate": self.cmd_translate,
@@ -295,8 +288,20 @@ class AIResponder(discord.Client):
         "nux nhentai": self.cmd_nsfw_nhentai,
         "nux autoreply": self.cmd_autoreply,
         "nux aisetup": self.cmd_aisetup,
-        "nux watch": self.cmd_watch
-
+        "nux watch": self.cmd_watch,
+        "nux weather": self.cmd_weather,
+        "nux guilds": self.cmd_guilds,
+        "nux didyoumean": self.cmd_didyoumean,
+        "nux captcha": self.cmd_captcha,
+        "nux calc": self.cmd_calc,
+        "nux cleaner": self.cmd_cleaner,
+        "nux cdm": self.cmd_cleardmsent,
+        "nux cuddle": self.cmd_cuddle,
+        "nux insane": self.cmd_loser,
+        "nux ghostmention": self.cmd_ghostmention,
+        "nux gespam": self.cmd_ghostemojispam,
+        "nux gedit": self.cmd_ghostedit,
+        "nux font": self.cmd_font,
 }
 
     def build_help_message(self):
@@ -361,317 +366,6 @@ class AIResponder(discord.Client):
         content = message.content.strip()
         lowered = content.lower()
 
-        if lowered.startswith("all ping"):
-            await self.cmd_aping(message)
-            return
-
-        if lowered.startswith("all tdm"):
-            await self.cmd_targetdm(message)
-            return
-
-        if lowered.startswith("all spam"):
-            await self.cmd_targetdmspam(message)
-            return
-
-        if lowered.startswith("nux weather"):
-            await self.cmd_weather(message)
-            return
-
-        if lowered.startswith("nux guilds"):
-            await self.cmd_guilds(message)
-            return
-
-        if lowered.startswith("nux echo"):
-            await self.cmd_echo(message)
-            return
-
-        if lowered.startswith("nux define"):
-            await self.cmd_define(message)
-            return
-        
-        if lowered.startswith("nux watch"):
-            await self.cmd_watch(message)
-            return
-
-        if lowered.startswith("nux fakemsg"):
-            await self.cmd_fakemsg(message)
-            return
-
-        if lowered.startswith("nux udefine"):
-            await self.cmd_udefine(message)
-            return
-
-        if lowered.startswith("nux qr"):
-            await self.cmd_qr(message)
-            return
-
-        if lowered.startswith("nux tts"):
-            await self.cmd_tts(message)
-            return
-
-        if lowered.startswith("nux hidemention"):
-            await self.cmd_hidemention(message)
-            return
-
-        if lowered.startswith("nux freq"):
-            await self.cmd_waveform(message)
-            return
-
-        if lowered.startswith("nux ascii"):
-            await self.cmd_ascii(message)
-            return
-
-        if lowered.startswith("nux nickname"):
-            await self.cmd_nickname(message)
-            return
-
-        if lowered.startswith("nux emc"):
-            await self.cmd_emc(message)
-            return
-
-        if lowered.startswith("nux print"):
-            await self.cmd_print(message)
-            return
-
-        if lowered.startswith("nux dmc"):
-            await self.cmd_dmc(message)
-            return
-
-        if lowered.startswith("nux didyoumean"):
-            await self.cmd_didyoumean(message)
-            return
-
-        if lowered.startswith("nux facts"):
-            await self.cmd_facts(message)
-            return
-
-        if lowered.startswith("nux scroll"):
-            await self.cmd_scroll(message)
-            return
-
-        if lowered.startswith("nux pornhub"):
-            await self.cmd_pornhub(message)
-            return
-
-        if lowered.startswith("nux rot"):
-            await self.cmd_rot13(message)
-            return
-
-        if lowered.startswith("nux rvowel"):
-            await self.cmd_removevowels(message)
-            return
-
-        if lowered.startswith("nux ping"):
-            await self.cmd_ping(message)
-            return
-
-        if lowered.startswith("nux roleinfo"):
-            await self.cmd_roleinfo(message)
-            return
-
-        if lowered.startswith("nux fakenitro"):
-            await self.cmd_fakenitro(message)
-            return
-
-        if lowered.startswith("nux simulate"):
-            await self.cmd_simulate(message)
-            return
-
-        if lowered.startswith("nux piglatin"):
-            await self.cmd_piglatin(message)
-            return
-
-        if lowered.startswith("nux achievement"):
-            await self.cmd_achievement(message)
-            return
-
-        if lowered.startswith("nux challenge"):
-            await self.cmd_challenge(message)
-            return
-
-        if lowered.startswith("nux pgif"):
-            await self.cmd_pgif(message)
-            return
-
-        if lowered.startswith("nux zalgo"):
-            await self.cmd_zalgo(message)
-            return
-
-        if lowered.startswith("nux flip"):
-            await self.cmd_flip(message)
-            return
-
-        if lowered.startswith("nux eval"):
-            await self.cmd_eval(message)
-            return
-
-        if lowered.startswith("nux leaveguild"):
-            await self.cmd_leaveguild(message)
-            return
-
-        if lowered.startswith("nux base64"):
-            await self.cmd_base64(message)
-            return
-
-        if lowered.startswith("nux font"):
-            await self.cmd_font(message)
-            return
-
-        if lowered.startswith("nux shorten"):
-            await self.cmd_shorten(message)
-            return
-
-        if lowered.startswith("nux hhelp"):
-            await self.cmd_nsfwhelp(message)
-            return
-
-        if lowered.startswith("nux nsfwlist"):
-            await self.cmd_nsfwlist(message)
-            return
-
-        if lowered.startswith("nux nsfw") or lowered.startswith("all nsfw"):
-            await self.cmd_nsfw(message)
-            return
-
-        if lowered.startswith("nux rule34") or lowered.startswith("all rule34"):
-            await self.cmd_rule34(message)
-            return
-
-        if lowered.startswith("nux redgif") or lowered.startswith("all redgif"):
-            await self.cmd_redgif(message)
-            return
-
-        if lowered.startswith("nux captcha"):
-            await self.cmd_captcha(message)
-            return
-
-        if lowered.startswith("nux calc"):
-            await self.cmd_calc(message)
-            return
-
-        if lowered.startswith("nux inviteinfo"):
-            await self.cmd_inviteinfo(message)
-            return
-
-        if lowered.startswith("nux dlmedia"):
-            await self.cmd_dlmedia(message)
-            return
-
-        if lowered.startswith("nux mock"):
-            await self.cmd_mock(message)
-            return
-
-        if lowered.startswith("nux insane"):
-            await self.cmd_loser(message)
-            return
-
-        if lowered.startswith("nux ghostmention"):
-            await self.cmd_ghostmention(message)
-            return
-
-        if lowered.startswith("nux gespam"):
-            await self.cmd_ghostemojispam(message)
-            return
-
-        if lowered.startswith("nux cleaner"):
-            await self.cmd_cleaner(message)
-            return
-
-        if lowered.startswith("nux cdm") or lowered.startswith("all cdm"):
-            await self.cmd_cleardmsent(message)
-            return
-
-        if lowered.startswith("nux caption"):
-            await self.cmd_caption(message)
-            return
-
-        if lowered.startswith("nux smashorpass"):
-            await self.cmd_smashorpass(message)
-            return
-
-        if lowered.startswith("nux cuddle"):
-            await self.cmd_cuddle(message)
-            return
-
-        if lowered.startswith("nux gsreact"):
-            await self.cmd_ghostreactstorm(message)
-            return
-
-        if lowered.startswith("nux gedit"):
-            await self.cmd_ghostedit(message)
-            return
-
-        if lowered.startswith("nux uinfo"):
-            await self.cmd_userinfo(message)
-            return
-
-        if lowered.startswith("nux translate"):
-            await self.cmd_translate(message)
-            return
-
-        if lowered.startswith("nux lyrics"):
-            await self.cmd_lyrics(message)
-            return
-
-        if lowered.startswith("nux usercount"):
-            await self.cmd_usercount(message)
-            return
-
-        if lowered.startswith("nux iplookup"):
-            await self.cmd_iplookup(message)
-            return
-
-        if lowered.startswith("nux nhentai"):
-            await self.cmd_nsfw_nhentai(message)
-            return
-
-        if lowered.startswith("nux autoreply"):
-            await self.cmd_autoreply(message)
-            return
-
-        if lowered.startswith("nux serverinfo"):
-            await self.cmd_serverinfo(message)
-            return
-
-        if lowered.startswith("nux channelinfo"):
-            await self.cmd_channelinfo(message)
-            return
-
-        if lowered.startswith("nux emojis"):
-            await self.cmd_emojis(message)
-            return
-
-        if lowered.startswith("nux kiss"):
-            await self.cmd_kiss(message)
-            return
-
-        if lowered.startswith("nux cf"):
-            await self.cmd_coinflip(message)
-            return
-
-        if lowered.startswith("nux avatar"):
-            await self.cmd_avatar(message)
-            return
-
-        if lowered.startswith("nux banner"):
-            await self.cmd_banner(message)
-            return
-
-        if lowered.startswith("nux wiki"):
-            await self.cmd_wiki(message)
-            return
-
-        if lowered.startswith("nux github"):
-            await self.cmd_github(message)
-            return
-
-        if lowered.startswith("nux stats"):
-            await self.cmd_stats(message)
-            return
-
-        if lowered.startswith("nux bug"):
-            await self.cmd_bug(message)
-            return
 
         if lowered in self.commands:
             await self.commands[lowered](message)
@@ -1381,7 +1075,6 @@ class AIResponder(discord.Client):
             "- `nux simulate <@person> <command>` uses a command as the person mentioned\n"
             "- `nux backup` saves my friends list and servers/guilds i'm to a file for me\n"
             "- `nux aisetup` sets up the ai personality for openrouter\n"
-            "- `nux fakemsg <@person> <text> | <possible text 2>` lets me fake a discord message from the mentioned person, able to use multiple lines in the message, except it currently doesn't look like an actual discord message 'nux fexample' to see what it looks like\n"
             "⠀\n\n"
             "how\n"
             "using a @owner_only() decorator, that pulls my own id and uses it to make it so if the command has that decorator, only i can use it, and this is what it looks like in use\n-- you can try to use the command, but obviously nothing will happen --⠀"
@@ -2521,19 +2214,6 @@ class AIResponder(discord.Client):
                     lyrics = lyrics[:1997] + "..."
                 await self.send_and_clean(message.channel, f"{artist} - {song}\n{lyrics}")
 
-    @owner_only()
-    async def cmd_changepfp(self, message):
-        if not message.attachments:
-            return await self.send_and_clean(message.channel, "attach a new profile picture")
-
-        attachment = message.attachments[0]
-        pfp_bytes = await attachment.read()
-        try:
-            await self.user.edit(avatar=pfp_bytes)
-            await self.send_and_clean(message.channel, "profile picture changed")
-        except Exception as e:
-            await self.send_and_clean(message.channel, f"failed to change pfp {e}")
-
     async def cmd_usercount(self, message):
         if not message.guild:
             return await self.send_and_clean(message.channel, "this command only works in a server")
@@ -2558,15 +2238,6 @@ class AIResponder(discord.Client):
                     return await self.send_and_clean(message.channel, "invalid ip or lookup failed")
                 info = f"ip lookup\ncountry {data.get('country')}\nregion {data.get('regionName')}\ncity {data.get('city')}\nisp {data.get('isp')}\norg {data.get('org')}"
                 await self.send_and_clean(message.channel, info)
-
-    async def cmd_nsfw_caption(self, message):
-        if not message.attachments:
-            return await self.send_and_clean(message.channel, "attach an image for nsfw caption")
-        if isinstance(message.channel, discord.DMChannel):
-            pass
-        elif hasattr(message.channel, "is_nsfw") and not message.channel.is_nsfw():
-            return await self.send_and_clean(message.channel, "this command can only be used in nsfw channels or direct messages")
-        await self.cmd_caption(message)
 
     async def cmd_nsfw_nhentai(self, message):
         query = message.content.strip()[len("nux nhentai"):].strip()
