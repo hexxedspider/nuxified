@@ -100,6 +100,8 @@ class AIResponder(discord.Client):
             self.notrace_active = False
             self.ai_cooldown_seconds = 15
             self.autoreplies = {}
+        # map of channel_id -> asyncio.Task for running cdm deletions
+        self.cdm_tasks = {}
         self.api = RedGifsAPI()
         self.af_client = AlexFlipnote.Client()
         unique = os.getenv('TOKEN', '') or str(os.getpid())
@@ -411,6 +413,11 @@ class AIResponder(discord.Client):
         # this is how i use to have my status cycle, but that new command does it for me
         # self.status_task = self.loop.create_task(self.change_status_periodically())
         print(f"{self.user}")
+        if getattr(self, 'status_enabled', False) and not getattr(self, 'status_task', None):
+            try:
+                self.status_task = self.loop.create_task(self.change_status_periodically())
+            except Exception:
+                pass
     async def on_message(self, message):
         if message.author.bot:
             return
@@ -1163,16 +1170,64 @@ class AIResponder(discord.Client):
 
     async def cmd_cleardmsent(self, message):
         channel = message.channel
+        channel_id = channel.id
 
+        if not hasattr(self, 'cdm_tasks'):
+            self.cdm_tasks = {}
+
+        existing = self.cdm_tasks.get(channel_id)
+
+        if existing and not existing.done():
+            existing.cancel()
+            try:
+                await existing
+            except asyncio.CancelledError:
+                pass
+            self.cdm_tasks.pop(channel_id, None)
+            await self.send_and_clean(channel, "stopped cdm deletions")
+            return
+
+        task = asyncio.create_task(self._cdm_worker(channel))
+        self.cdm_tasks[channel_id] = task
+        await self.send_and_clean(channel, "started cdm deletions — run `nux cdm` again to stop")
+
+    async def _cdm_worker(self, channel):
         deleted_count = 0
-        async for msg in channel.history(limit=250):
-            if msg.author.id == self.user.id:
-                try:
-                    await msg.delete()
-                    deleted_count += 1
-                    await asyncio.sleep(1.15)
-                except Exception as e:
-                    return
+        channel_id = channel.id
+        try:
+            while True:
+                found = False
+                async for msg in channel.history(limit=250):
+                    if channel_id not in self.cdm_tasks or self.cdm_tasks.get(channel_id) is None:
+                        raise asyncio.CancelledError()
+                    if msg.author.id == self.user.id:
+                        found = True
+                        try:
+                            await msg.delete()
+                            deleted_count += 1
+                            await asyncio.sleep(1.15)
+                        except asyncio.CancelledError:
+                            raise
+                        except Exception:
+                            await asyncio.sleep(0.5)
+
+                if not found:
+                    break
+
+                await asyncio.sleep(0.5)
+
+        except asyncio.CancelledError:
+            return
+        finally:
+            try:
+                self.cdm_tasks.pop(channel_id, None)
+            except Exception:
+                pass
+
+        try:
+            await self.send_and_clean(channel, f"cdm finished, deleted {deleted_count} messages")
+        except Exception:
+            pass
 
     async def cmd_greyscale(self, message):
         if not message.attachments:
@@ -1928,12 +1983,14 @@ class AIResponder(discord.Client):
             "i love voss", #54
             "fuck you voss", #55
             "voss is my life", #56
-            "spidergang" #57
+            "spidergang", #57
+            "lil dvrkie!" #58
+
         ]
         while True:
             new_status = self.rand.choice(status_messages)
             await self.change_presence(activity=discord.CustomActivity(name=new_status), status=discord.Status.online)
-            await asyncio.sleep(60)
+            await asyncio.sleep(20)
 
     @owner_only()
     async def cmd_statustoggle(self, message):
