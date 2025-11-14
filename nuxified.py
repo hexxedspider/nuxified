@@ -1871,61 +1871,64 @@ class AIResponder(discord.Client):
 
     async def change_status_periodically(self):
         status_messages = [
-            "nuxifed straight to you",
-            "playing with hexxedspider",
-            "hell blunt",
-            "nux help (limited access)",
-            "im probably sleeping or something",
-            "nuxified: v4mpire + cl9udempire",
-            "it's pronounced \"cloud 9 empire\", not \"clnineoud empire\"",
-            "i think ive had enough of you",
-            "i got my hands on you , and i aint letting go",
-            "i change this every minute cause im just like that",
-            "dont you miss me",
-            "im the man and im in my prime",
-            "the raven is watching",
-            "github coming soon (it is not) (probably) (it came out)",
-            "i know you missed me",
-            "felt silly and ended up blowing my head off",
-            "autistic echo chamber",
-            "fuck",
-            "im coming straight from hell with love",
-            "i lo",
-            "one status is 'i lo' when i meant to type i love you",
-            "nah twin she got u blushin twin ah hell naw twin",
-            "new update is insane",
-            "hexxedspider situation is crazy",
-            "why the fuck u peepin my status",
-            "i have a ai responder, just ping me",
-            "@headlessryn on instagram <3",
-            "hexxedspider.github.io",
-            "headlessryn.github.io (peep the tos)",
-            "nukumoxy.netlify.app for errors",
-            "bruh",
-            "this account is on github",
-            "github.com/hexxedspider/nuxified",
-            "rip to @hexxedspider but we up",
-            "rest in peace my beloved",
-            "rest in pieces my beloved",
-            "im always online",
-            "if im offline then something's wrong",
-            "if you want me to put something as my status just ask",
-            "i can put whatever you want as my status if u ask",
-            "like did u get the memo",
-            "g59 on top",
-            "whole lotta grey",
-            "i dont do this",
-            "i love my 6th grade gf",
-            "message me something you want me to make my status",
-            "i change this every minute btw",
-            "HOW THE FUCK YOU GET BANNED FROM SPOTIFY",
-            "im not active often",
-            "we love casting spells",
-            "i will add whatever you want here",
-            "discord.gg/dEnF55hgaG - free movies + shows",
-            "the mitochondria is the powerhouse of the cell",
-            "i love voss",
-            "voss is my life",
+            "nuxifed straight to you", #1
+            "playing with hexxedspider", #2
+            "hell blunt", #3
+            "nux help (limited access)", #4
+            "im probably sleeping or something", #5
+            "nuxified: v4mpire + cl9udempire", #6
+            "it's pronounced \"cloud 9 empire\", not \"clnineoud empire\"", #7
+            "i think ive had enough of you", #8
+            "i love headlessryn", #9
+            "i got my hands on you , and i aint letting go", #10
+            "i change this every minute cause im just like that", #11
+            "dont you miss me", #12
+            "im the man and im in my prime", #13
+            "the raven is watching", #14
+            "github coming soon (it is not) (probably) (it came out)", #15
+            "i know you missed me", #16
+            "felt silly and ended up blowing my head off", #17 
+            "autistic echo chamber", #18
+            "fuck", #19
+            "im coming straight from hell with love", #19
+            "i lo", #20
+            "one status is 'i lo' when i meant to type i love you", #21
+            "nah twin she got u blushin twin ah hell naw twin", #22
+            "new update is insane", #23
+            "hexxedspider situation is crazy", #24
+            "why the fuck u peepin my status", #25
+            "i have a ai responder, just ping me", #26
+            "@headlessryn on instagram <3", #27
+            "hexxedspider.github.io", #28
+            "headlessryn.github.io (peep the tos)", #29
+            "nukumoxy.netlify.app for errors", #30
+            "bruh", #31
+            "this account is on github", #32
+            "github.com/hexxedspider/nuxified", #33
+            "rip to @hexxedspider but we up", #34
+            "rest in peace my beloved", #35
+            "rest in pieces my beloved", #36
+            "im always online", #37
+            "if im offline then something's wrong", #38
+            "if you want me to put something as my status just ask", #39
+            "i can put whatever you want as my status if u ask", #40
+            "like did u get the memo", #41
+            "g59 on top", #42
+            "whole lotta grey", #43
+            "i dont do this", #44
+            "i love my 6th grade gf", #45
+            "message me something you want me to make my status", #46
+            "i change this every minute btw", #47
+            "HOW THE FUCK YOU GET BANNED FROM SPOTIFY", #48
+            "im not active often", #49
+            "we love casting spells", #50
+            "i will add whatever you want here", #51
+            "discord.gg/dEnF55hgaG - free movies + shows", #52
+            "the mitochondria is the powerhouse of the cell", #53
+            "i love voss", #54
+            "fuck you voss", #55
+            "voss is my life", #56
+            "spidergang" #57
         ]
         while True:
             new_status = self.rand.choice(status_messages)
