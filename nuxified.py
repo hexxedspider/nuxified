@@ -1984,7 +1984,8 @@ class AIResponder(discord.Client):
             "fuck you voss", #55
             "voss is my life", #56
             "spidergang", #57
-            "lil dvrkie!" #58
+            "lil dvrkie!", #58
+            "join up - https://discord.gg/eAmEAhKZhJ" #59
 
         ]
         while True:
