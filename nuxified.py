@@ -1900,10 +1900,10 @@ class AIResponder(discord.Client):
             "@headlessryn on instagram <3",
             "hexxedspider.github.io",
             "headlessryn.github.io (peep the tos)",
-            "nukumoxy.netlify.app for errors"
+            "nukumoxy.netlify.app for errors",
             "bruh",
-            "this account is on github"
-            "github.com/hexxedspider/nuxified"
+            "this account is on github",
+            "github.com/hexxedspider/nuxified",
             "rip to @hexxedspider but we up",
             "rest in peace my beloved",
             "rest in pieces my beloved",
