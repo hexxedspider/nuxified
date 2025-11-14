@@ -4,8 +4,6 @@ import time
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-print("[3] selfbots rising...")
-
 class RestartHandler(FileSystemEventHandler):
     def __init__(self, scripts):
         self.scripts = scripts  # list of bot scripts
@@ -28,8 +26,8 @@ class RestartHandler(FileSystemEventHandler):
                 self.start_bot(script)
 
 if __name__ == "__main__":
-    path = "."  # folder to watch
-    bot_scripts = ["nuxified.py", "lovebound.py", "femboy.py", "suicidemane.py", "slammedbeamer.py"]  # list of bot scripts to restart
+    path = "."
+    bot_scripts = ["nuxified.py"]
     event_handler = RestartHandler(bot_scripts)
     observer = Observer()
     observer.schedule(event_handler, path=path, recursive=False)
