@@ -1879,7 +1879,7 @@ class AIResponder(discord.Client):
             "nuxified: v4mpire + cl9udempire",
             "it's pronounced \"cloud 9 empire\", not \"clnineoud empire\"",
             "i think ive had enough of you",
-            "i feel bad for everyone else because im better",
+            "i got my hands on you , and i aint letting go",
             "i change this every minute cause im just like that",
             "dont you miss me",
             "im the man and im in my prime",
