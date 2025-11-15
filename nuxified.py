@@ -103,7 +103,8 @@ class AIResponder(discord.Client):
         # map of channel_id -> asyncio.Task for running cdm deletions
         self.cdm_tasks = {}
         self.api = RedGifsAPI()
-        self.af_client = AlexFlipnote.Client()
+        # AlexFlipnote API base URL
+        self.af_api = "https://api.alexflipnote.dev"
         unique = os.getenv('TOKEN', '') or str(os.getpid())
         seed = int(hashlib.sha256(unique.encode()).hexdigest(), 16) % (10**8)
         self.rand = random.Random(seed)
@@ -135,7 +136,6 @@ class AIResponder(discord.Client):
                 "nux scroll <text>": "make an image with the scroll meme format",
                 "nux togif": "turns the attached video file into a gif",
                 "nux freq <freq hz> <waveform>": "sends back an audio file with the requested hz and waveform useful for clean frequencies",
-                "nux greyscale": "turns the attached image, gif or mp4 grey",
                 "nux font <fontname> <text>": "renders text using a specific font from dmfonts"
             },
             "fun": {
@@ -318,7 +318,6 @@ class AIResponder(discord.Client):
         "nux simulate": self.cmd_simulate,
         "nux print": self.cmd_print,
         "nux fexample": self.cmd_fexample,
-        "nux greyscale": self.cmd_greyscale,
         "nux translate": self.cmd_translate,
         "nux lyrics": self.cmd_lyrics,
         "nux usercount": self.cmd_usercount,
@@ -644,9 +643,17 @@ class AIResponder(discord.Client):
         if not text:
             await self.send_and_clean(message.channel, "usage nux achievement <text>")
             return
-        img_bytes = await self.af_client.achievement(text)
-        buffer = io.BytesIO(img_bytes)
-        await self.send_and_clean(message.channel, file=discord.File(buffer, filename="achievement.png"))
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"{self.af_api}/achievement?text={urllib.parse.quote(text)}"
+                async with session.get(url) as resp:
+                    if resp.status != 200:
+                        return await self.send_and_clean(message.channel, "couldn't generate achievement")
+                    img_bytes = await resp.read()
+            buffer = io.BytesIO(img_bytes)
+            await self.send_and_clean(message.channel, file=discord.File(buffer, filename="achievement.png"))
+        except Exception as e:
+            await self.send_and_clean(message.channel, "couldn't generate achievement")
 
     async def cmd_userinfo(self, message):
         if not message.mentions:
@@ -823,9 +830,17 @@ class AIResponder(discord.Client):
             return
 
         text1, text2 = args
-        img_bytes = await self.af_client.didyoumean(top=text1, bottom=text2)
-        buffer = io.BytesIO(img_bytes)
-        await self.send_and_clean(message.channel, file=discord.File(buffer, filename="didyoumean.png"))
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"{self.af_api}/didyoumean?top={urllib.parse.quote(text1)}&bottom={urllib.parse.quote(text2)}"
+                async with session.get(url) as resp:
+                    if resp.status != 200:
+                        return await self.send_and_clean(message.channel, "couldn't generate image")
+                    img_bytes = await resp.read()
+            buffer = io.BytesIO(img_bytes)
+            await self.send_and_clean(message.channel, file=discord.File(buffer, filename="didyoumean.png"))
+        except Exception as e:
+            await self.send_and_clean(message.channel, "couldn't generate image")
 
     async def cmd_facts(self, message):
         content = message.content.strip()
@@ -833,9 +848,17 @@ class AIResponder(discord.Client):
         if not text:
             await self.send_and_clean(message.channel, "usage nux facts <text>")
             return
-        img_bytes = await self.af_client.facts(text)
-        buffer = io.BytesIO(img_bytes)
-        await self.send_and_clean(message.channel, file=discord.File(buffer, filename="facts.png"))
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"{self.af_api}/facts?text={urllib.parse.quote(text)}"
+                async with session.get(url) as resp:
+                    if resp.status != 200:
+                        return await self.send_and_clean(message.channel, "couldn't generate facts")
+                    img_bytes = await resp.read()
+            buffer = io.BytesIO(img_bytes)
+            await self.send_and_clean(message.channel, file=discord.File(buffer, filename="facts.png"))
+        except Exception as e:
+            await self.send_and_clean(message.channel, "couldn't generate facts")
 
     async def cmd_scroll(self, message):
         content = message.content.strip()
@@ -843,9 +866,17 @@ class AIResponder(discord.Client):
         if not text:
             await self.send_and_clean(message.channel, "usage nux scroll <text>")
             return
-        img_bytes = await self.af_client.scroll(text)
-        buffer = io.BytesIO(img_bytes)
-        await self.send_and_clean(message.channel, file=discord.File(buffer, filename="scroll.png"))
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"{self.af_api}/scroll?text={urllib.parse.quote(text)}"
+                async with session.get(url) as resp:
+                    if resp.status != 200:
+                        return await self.send_and_clean(message.channel, "couldn't generate scroll")
+                    img_bytes = await resp.read()
+            buffer = io.BytesIO(img_bytes)
+            await self.send_and_clean(message.channel, file=discord.File(buffer, filename="scroll.png"))
+        except Exception as e:
+            await self.send_and_clean(message.channel, "couldn't generate scroll")
 
     async def cmd_pornhub(self, message):
         content = message.content.strip()
@@ -856,9 +887,17 @@ class AIResponder(discord.Client):
             return
 
         text1, text2 = args
-        img_bytes = await self.af_client.pornhub(text1, text2)
-        buffer = io.BytesIO(img_bytes)
-        await self.send_and_clean(message.channel, file=discord.File(buffer, filename="pornhub.png"))
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"{self.af_api}/pornhub?text={urllib.parse.quote(text1)}&text2={urllib.parse.quote(text2)}"
+                async with session.get(url) as resp:
+                    if resp.status != 200:
+                        return await self.send_and_clean(message.channel, "couldn't generate image")
+                    img_bytes = await resp.read()
+            buffer = io.BytesIO(img_bytes)
+            await self.send_and_clean(message.channel, file=discord.File(buffer, filename="pornhub.png"))
+        except Exception as e:
+            await self.send_and_clean(message.channel, "couldn't generate image")
 
     async def cmd_challenge(self, message):
         content = message.content.strip()
@@ -866,9 +905,17 @@ class AIResponder(discord.Client):
         if not text:
             await self.send_and_clean(message.channel,"usage nux challenge <text>")
             return
-        img_bytes = await self.af_client.challenge(text)
-        buffer = io.BytesIO(img_bytes)
-        await self.send_and_clean(message.channel, file=discord.File(buffer, filename="challenge.png"))
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"{self.af_api}/challenge?text={urllib.parse.quote(text)}"
+                async with session.get(url) as resp:
+                    if resp.status != 200:
+                        return await self.send_and_clean(message.channel, "couldn't generate challenge")
+                    img_bytes = await resp.read()
+            buffer = io.BytesIO(img_bytes)
+            await self.send_and_clean(message.channel, file=discord.File(buffer, filename="challenge.png"))
+        except Exception as e:
+            await self.send_and_clean(message.channel, "couldn't generate challenge")
 
     async def cmd_hentai(self, message):
         r = requests.get("https://nekobot.xyz/api/image?type=" + self.rand.choice(['hentai', 'hboobs', 'hthigh']))
@@ -1147,73 +1194,33 @@ class AIResponder(discord.Client):
         except Exception:
             pass
 
-    async def cmd_greyscale(self, message):
-        if not message.attachments:
-            return await self.send_and_clean(message.channel, "attach an image, gif, or video")
-
-        attachment = message.attachments[0]
-        filename = attachment.filename.lower()
-
-        file_bytes = await attachment.read()
-        input_path = f"temp_input_{message.id}{os.path.splitext(filename)[-1]}"
-        with open(input_path, "wb") as f:
-            f.write(file_bytes)
-
-        if filename.endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif')):
-            output_path = f"greyscale_{message.id}{os.path.splitext(filename)[-1]}"
-            try:
-                with Image.open(input_path) as im:
-                    frames = []
-                    durations = []
-                    for frame in ImageSequence.Iterator(im):
-                        gray = frame.convert("L").convert("RGBA")
-                        frames.append(gray)
-                        durations.append(frame.info.get('duration', 100))
-                    if len(frames) == 1:
-                        frames[0].save(output_path)
-                    else:
-                        frames[0].save(
-                            output_path,
-                            save_all=True,
-                            append_images=frames[1:],
-                            duration=durations,
-                            loop=0,
-                            disposal=2
-                        )
-            except Exception as e:
-                os.remove(input_path)
-                return await self.send_and_clean(message.channel, f"failed to process image {e}")
-
-        elif filename.endswith(('.mp4', '.mov', '.avi', '.webm', '.mkv')):
-            output_path = f"greyscale_{message.id}.mp4"
-            import subprocess
-            cmd = [
-                "ffmpeg", "-y", "-i", input_path,
-                "-vf", "format=gray", "-c:a", "copy", output_path
-            ]
-            proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if proc.returncode != 0 or not os.path.exists(output_path):
-                os.remove(input_path)
-                return await self.send_and_clean(message.channel, "failed to process video (ffmpeg error)")
-        else:
-            os.remove(input_path)
-            return await self.send_and_clean(message.channel, "unsupported file type")
-
-        sent = await message.channel.send(file=discord.File(output_path))
-        await asyncio.sleep(2)
-        await sent.delete()
-        await message.delete()
-        os.remove(input_path)
-        if os.path.exists(output_path):
-            os.remove(output_path)
-
     async def cmd_captcha(self, message):
-        text = message.content.strip()[len("nux captcha"):].strip()
-        if not text:
-            return await self.send_and_clean(message.channel, "usage nux captcha <text>")
-        img_bytes = await self.af_client.captcha(text)
-        buffer = io.BytesIO(img_bytes)
-        await self.send_and_clean(message.channel, file=discord.File(buffer, filename="captcha.png"))
+        content = message.content.strip()[len("nux captcha"):].strip()
+        if not content:
+            return await self.send_and_clean(message.channel, "usage nux captcha <top> - <bottom>")
+        
+        parts = content.split(" - ", 1)
+        if len(parts) == 2:
+            top_text = parts[0].strip()
+            bottom_text = parts[1].strip()
+        else:
+            top_text = parts[0].strip()
+            bottom_text = "verify"
+        
+        if not top_text:
+            return await self.send_and_clean(message.channel, "top text cannot be empty")
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"{self.af_api}/captcha?top={urllib.parse.quote(top_text)}&bottom={urllib.parse.quote(bottom_text)}"
+                async with session.get(url) as resp:
+                    if resp.status != 200:
+                        return await self.send_and_clean(message.channel, "couldn't generate captcha")
+                    img_bytes = await resp.read()
+            buffer = io.BytesIO(img_bytes)
+            await self.send_and_clean(message.channel, file=discord.File(buffer, filename="captcha.png"))
+        except Exception as e:
+            await self.send_and_clean(message.channel, "couldn't generate captcha")
 
     async def cmd_nsfwhelp(self, message):
         nsfwhelp_msg = self.build_nsfwhelp_message()
@@ -2628,7 +2635,7 @@ class AIResponder(discord.Client):
         kiss_messages = [
             f"{author.mention} [kisses]({gif_url}) {target.mention}",
             f"{author.mention} [smooches]({gif_url}) {target.mention}",
-            f"{author.mention} [gives]({target.mention}) a kiss {gif_url}",
+            f"{author.mention} gives {target.mention} a [kiss]({gif_url})",
         ]
 
         msg = self.rand.choice(kiss_messages)
