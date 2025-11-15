@@ -177,17 +177,6 @@ class AIResponder(discord.Client):
                 "nux statustoggle": "toggles the bot's rotating status messages on or off",
                 "nux notrace": "toggles a mode where all my messages delete after 15 seconds",
             },
-            "ghost instant or timed deletions": {
-                "nux gping": "pings you after 5 seconds, then deletes instantly",
-                "nux ginvisible": "sends an invisible message",
-                "nux gespam": "sends 5 bat emojis then deletes them",
-                "nux gsreact": "reacts to a message you replied to with a random amount of emojis",
-                "nux gedit": "sends a random word (that i selected) and sends it with a typo, then edits it",
-                "nux galert": "sends a fake @‎everyone",
-                "nux gconfuse": "sends a garbled message",
-                "nux gslide": "sends a message slowly moving outwards that says 'slide'",
-                "nux ghostmention": "mentions everyone in the server without notifications, then deletes"
-            },
             "restricted / misc commands you dont have access to, or don't fit in the categories": {
                 "nux ocmds": "sends a message with commands only the owner can use",
                 "nux hhelp": "sends a message with the proper usage for nsfw commands it seems like literally every thing like what i am has something nsfw attached so i joined in"
@@ -195,7 +184,6 @@ class AIResponder(discord.Client):
         }
         self.nsfwhelp_categories = {
             "neko.life": {
-        "nux moan <word>": "not really nsfw, but it sends a random (text) moan",
         "nux hentai": "drawn nsfw",
         "nux thighs": "the best thing to ever exist",
         "nux ass": "the 1stnd best thing to ever exist",
@@ -304,15 +292,8 @@ class AIResponder(discord.Client):
         "nux charfreq": self.cmd_charfreq,
         "nux shorten": self.cmd_shorten,
         "nux mock": self.cmd_mock,
-        "nux moan": self.cmd_moan,
-        "nux gping": self.cmd_ghostping,
         "nux dadjoke": self.cmd_dadjoke,
         "nux inviteinfo": self.cmd_inviteinfo,
-        "nux ginvisible": self.cmd_ghostinvisible,
-        "nux gsreact": self.cmd_ghostreactstorm,
-        "nux gconfuse": self.cmd_ghostconfuse,
-        "nux galert": self.cmd_ghostalert,
-        "nux gslide": self.cmd_ghostslide,
         "nux uinfo": self.cmd_userinfo,
         "nux ocmds": self.cmd_ownercmds,
         "nux nsfwlist": self.cmd_nsfwlist,
@@ -354,9 +335,6 @@ class AIResponder(discord.Client):
         "nux cdm": self.cmd_cleardmsent,
         "nux cuddle": self.cmd_cuddle,
         "nux insane": self.cmd_loser,
-        "nux ghostmention": self.cmd_ghostmention,
-        "nux gespam": self.cmd_ghostemojispam,
-        "nux gedit": self.cmd_ghostedit,
         "nux font": self.cmd_font,
         "nux statustoggle": self.cmd_statustoggle,
         "nux notrace": self.cmd_notrace,
@@ -692,7 +670,7 @@ class AIResponder(discord.Client):
             info += f"joined server {joined_at}\n"
         info += f"bot {'yes' if user.bot else 'no'}\n"
 
-        if user.global_name:
+        if hasattr(user, 'global_name') and user.global_name:
             info += f"global display name {user.global_name}\n"
 
         if hasattr(user, 'accent_color') and user.accent_color:
@@ -712,81 +690,6 @@ class AIResponder(discord.Client):
 
         await self.send_and_clean(message.channel, info)
 
-
-    async def cmd_ghostedit(self, message):
-        word_list = ['hello', 'goodbye', 'danger', 'phantom', 'storm', 'glitch', 'shadow', 'whisper', 'emotion', 'frozen', 'nux', 'nuxified', 'cloud9empire', 'v4mpire']
-
-        original = self.rand.choice(word_list)
-        typo = self.generate_random_typo(original)
-
-        sent = await self.send_and_clean(message.channel, typo)
-        await asyncio.sleep(0.293)
-        await sent.edit(content=original)
-        await asyncio.sleep(0.1732)
-        await sent.delete()
-
-    def generate_random_typo(self, word):
-        if len(word) <= 1:
-            return word
-
-        typo_type = self.rand.choice(['duplicate', 'missing', 'swap', 'extra'])
-
-        if typo_type == 'duplicate':
-            index = self.rand.randint(0, len(word) - 1)
-            return word[:index] + word[index] * 2 + word[index + 1:]
-
-        elif typo_type == 'missing':
-            index = self.rand.randint(0, len(word) - 1)
-            return word[:index] + word[index + 1:]
-
-        elif typo_type == 'swap' and len(word) > 2:
-            index = self.rand.randint(0, len(word) - 2)
-            return word[:index] + word[index + 1] + word[index] + word[index + 2:]
-
-        elif typo_type == 'extra':
-            index = self.rand.randint(0, len(word))
-            random_letter = self.rand.choice('abcdefghijklmnopqrstuvwxyz')
-            return word[:index] + random_letter + word[index:]
-
-        return word
-
-    async def cmd_ghostreactstorm(self, message):
-        if not message.reference:
-            await self.send_and_clean(message.channel, "you must reply to a message to storm react")
-            return
-
-        target_message = await message.channel.fetch_message(message.reference.message_id)
-        emojis = ['💀', '👻', '🧛‍♂️', '🦇', '🔪', '🔥', '💔', '❌', '➕', '🖤', '✨']
-        selected_emojis = self.rand.sample(emojis, self.rand.randint(3, len(emojis)))
-
-        for emoji in selected_emojis:
-            await target_message.add_reaction(emoji)
-            await asyncio.sleep(0.273)
-
-        await asyncio.sleep(0.471)
-
-        for emoji in selected_emojis:
-            await target_message.remove_reaction(emoji, self.user)
-            await asyncio.sleep(0.292)
-
-        await message.delete()
-
-    async def cmd_ghostslide(self, message):
-        word = "slide"
-        max_spaces = 8
-        delay = 0.33
-
-        space_char = '⠀'
-
-        sent = await self.send_and_clean(message.channel, word)
-
-        for spaces in range(1, max_spaces + 1):
-            await asyncio.sleep(delay)
-            await sent.edit(content=f"{space_char * spaces}{word}")
-
-        await asyncio.sleep(1)
-        await sent.delete()
-        await message.delete()
 
     async def cmd_inviteinfo(self, message):
         content = message.content.strip()
@@ -1023,8 +926,13 @@ class AIResponder(discord.Client):
                 if resp.status != 200:
                     await self.send_and_clean(message.channel, "couldn't fetch hug gif")
                     return
-                data = await resp.json()
-                gif_url = data['url']
+                try:
+                    data = await resp.json()
+                    gif_url = data.get('url')
+                    if not gif_url:
+                        return await self.send_and_clean(message.channel, "couldn't get hug gif")
+                except Exception:
+                    return await self.send_and_clean(message.channel, "couldn't fetch hug gif")
 
         hug_messages = [
             f"{author.mention} [hugs]({gif_url}) {target.mention}",
@@ -1047,8 +955,13 @@ class AIResponder(discord.Client):
                 if resp.status != 200:
                     await self.send_and_clean(message.channel, "couldn't fetch pat gif")
                     return
-                data = await resp.json()
-                gif_url = data['url']
+                try:
+                    data = await resp.json()
+                    gif_url = data.get('url')
+                    if not gif_url:
+                        return await self.send_and_clean(message.channel, "couldn't get pat gif")
+                except Exception:
+                    return await self.send_and_clean(message.channel, "couldn't fetch pat gif")
 
         pat_messages = [
             f"{author.mention} [pats]({gif_url}) {target.mention}",
@@ -1071,8 +984,13 @@ class AIResponder(discord.Client):
                 if resp.status != 200:
                     await self.send_and_clean(message.channel, "couldn't fetch slap gif")
                     return
-                data = await resp.json()
-                gif_url = data['url']
+                try:
+                    data = await resp.json()
+                    gif_url = data.get('url')
+                    if not gif_url:
+                        return await self.send_and_clean(message.channel, "couldn't get slap gif")
+                except Exception:
+                    return await self.send_and_clean(message.channel, "couldn't fetch slap gif")
 
         slap_messages = [
             f"{author.mention} [slaps]({gif_url}) {target.mention}",
@@ -1289,13 +1207,6 @@ class AIResponder(discord.Client):
         if os.path.exists(output_path):
             os.remove(output_path)
 
-    async def cmd_ghostalert(self, message):
-        fake_ping = "@‎everyone"
-        sent = await message.channel.send(f"{fake_ping}")
-        await message.delete()
-        await asyncio.sleep(1)
-        await sent.delete()
-
     async def cmd_captcha(self, message):
         text = message.content.strip()[len("nux captcha"):].strip()
         if not text:
@@ -1303,16 +1214,6 @@ class AIResponder(discord.Client):
         img_bytes = await self.af_client.captcha(text)
         buffer = io.BytesIO(img_bytes)
         await self.send_and_clean(message.channel, file=discord.File(buffer, filename="captcha.png"))
-
-    async def cmd_ghostconfuse(self, message):
-        garbled_text = ''.join(self.rand.choice('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()') for _ in range(20))
-        emojis = ['💀', '👻', '🧛‍♂️', '🦇', '🔪', '🔥', '💔', '❌', '➕', '🖤', '✨']
-        mixed = ''.join(self.rand.choice([self.rand.choice(garbled_text), self.rand.choice(emojis)]) for _ in range(30))
-
-        sent = await message.channel.send(mixed)
-        await asyncio.sleep(0.793)
-        await sent.delete()
-        await message.delete()
 
     async def cmd_nsfwhelp(self, message):
         nsfwhelp_msg = self.build_nsfwhelp_message()
@@ -1333,9 +1234,9 @@ class AIResponder(discord.Client):
             "- `nux simulate <@person> <command>` uses a command as the person mentioned\n"
             "- `nux backup` saves my friends list and servers/guilds i'm to a file for me\n"
             "- `nux ai setup` sets up the ai personality for openrouter (dm only)\n"
-            "⠀\n\n"
-            "how\n"
-            "using a @owner_only() decorator, that pulls my own id and uses it to make it so if the command has that decorator, only i can use it, and this is what it looks like in use\n-- you can try to use the command, but obviously nothing will happen --⠀"
+            "[⠀](https://cdn.discordapp.com/attachments/1136379503116025939/1387306227842945106/image.png?ex=685cdd1b&is=685b8b9b&hm=25ee59d3d9c686073400a51a4f70fb45e9d036ce9e32293cf9afce57081fac15&)\n\n"
+            "**how**\n"
+            "using a @owner_only() decorator, that pulls my own id and uses it to make it so if the command has that decorator, only i can use it, and this is what it looks like in use\n-- you can try to use the command, but obviously nothing will happen --[⠀](https://cdn.discordapp.com/attachments/1136379503116025939/1387305398964326440/image.png?ex=685cdc56&is=685b8ad6&hm=c66308c3bc829df58dd0706ec264569a2aeffc4c58d5d1ea321b2ba57e4ea44f&)"
         )
         await self.send_and_clean(message.channel, help_text)
 
@@ -1359,8 +1260,13 @@ class AIResponder(discord.Client):
                 if resp.status != 200:
                     await self.send_and_clean(message.channel, "couldn't fetch cuddle gif")
                     return
-                data = await resp.json()
-                gif_url = data['url']
+                try:
+                    data = await resp.json()
+                    gif_url = data.get('url')
+                    if not gif_url:
+                        return await self.send_and_clean(message.channel, "couldn't get cuddle gif")
+                except Exception:
+                    return await self.send_and_clean(message.channel, "couldn't fetch cuddle gif")
 
         cuddle_messages = [
             f"{author.mention} [cuddles]({gif_url}) {target.mention}",
@@ -1628,27 +1534,6 @@ class AIResponder(discord.Client):
         mocked = ''.join(self.rand.choice([c.upper(), c.lower()]) for c in text)
         await self.send_and_clean(message.channel, mocked)
 
-    async def cmd_moan(self, message):
-        moans = [
-            "moans uhh~", "aaahn~", "don't stop~", "you're so good at this~", "nyah~",
-            "n-not there..", "h-harder..", "moreee~", "uwah~", "youre a fucking disgrace"
-        ]
-        await self.send_and_clean(message.channel, self.rand.choice(moans))
-
-    async def cmd_ghostping(self, message):
-        async with message.channel.typing():
-            await asyncio.sleep(5)
-            await self.send_and_clean(message.channel, f"{message.author.mention}")
-            await asyncio.sleep(0)
-            async for msg in message.channel.history(limit=1):
-                await msg.delete()
-
-    async def cmd_ghostinvisible(self, message):
-        invisible = "\u200b" * 1
-        msg = await message.channel.send(invisible)
-        await asyncio.sleep(1.7)
-        await msg.delete()
-
     async def cmd_aping(self, message):
         await self.send_and_clean(message.channel, f"nux base64 decode dW5kZWFkIFsyXQ==.")
 
@@ -1708,19 +1593,6 @@ class AIResponder(discord.Client):
         msg = await message.channel.send("loser")
         await asyncio.sleep(0.5)
         await msg.delete()
-
-    async def cmd_ghostemojispam(self, message):
-        for _ in range(5):
-            msg = await message.channel.send("🦇")
-            await asyncio.sleep(0.326)
-            await msg.delete()
-
-    async def cmd_ghostmention(self, message):
-       mentions = " ".join(member.mention for member in message.channel.members if not member.bot)[:1900]
-
-       msg = await message.channel.send(mentions)
-       await asyncio.sleep(0)
-       await msg.delete()
 
     async def cmd_font(self, message):
         args = message.content.strip().split()
@@ -1926,7 +1798,7 @@ class AIResponder(discord.Client):
 
     async def change_status_periodically(self):
         status_messages = [
-            "nuxifed straight to you", #1
+            "nuxified straight to you", #1
             "playing with hexxedspider", #2
             "hell blunt", #3
             "nux help (limited access)", #4
@@ -1988,7 +1860,9 @@ class AIResponder(discord.Client):
             "join up - https://discord.gg/eAmEAhKZhJ", #59
             "take my knife and carve the initals", #60
             "where is darkie?", #61
-
+            "tf u mean meltdown\nlike autism or smth", #62
+            "\"sigmas got a major hand on the war field\"", #63
+            "\"I think we should do a treaty between Kingdom of shrimps and sigmas\"" #64
         ]
         while True:
             new_status = self.rand.choice(status_messages)
@@ -2283,15 +2157,25 @@ class AIResponder(discord.Client):
             resp = await s.get(url)
             if resp.status != 200:
                 return await self.send_and_clean(message.channel, f"no proper definition found for {term}")
-            data = await resp.json()
-            entry = data[0]
-            defs = entry["meanings"][0]["definitions"][0]
-            definition = defs.get("definition", "—")
-            example = defs.get("example")
-            out = f"{term} {definition}"
-            if example:
-                out += f"\n» {example}"
-            await self.send_and_clean(message.channel, out)
+            try:
+                data = await resp.json()
+                if not data or len(data) == 0:
+                    return await self.send_and_clean(message.channel, f"no proper definition found for {term}")
+                entry = data[0]
+                if "meanings" not in entry or not entry["meanings"]:
+                    return await self.send_and_clean(message.channel, f"no proper definition found for {term}")
+                meanings = entry["meanings"]
+                if not meanings[0].get("definitions"):
+                    return await self.send_and_clean(message.channel, f"no proper definition found for {term}")
+                defs = meanings[0]["definitions"][0]
+                definition = defs.get("definition", "—")
+                example = defs.get("example")
+                out = f"{term} {definition}"
+                if example:
+                    out += f"\n» {example}"
+                await self.send_and_clean(message.channel, out)
+            except Exception:
+                await self.send_and_clean(message.channel, f"couldn't process definition for {term}")
 
     async def cmd_udefine(self, message):
         term = message.content.strip()[len("nux udefine"):].strip()
@@ -2639,14 +2523,14 @@ class AIResponder(discord.Client):
         info += f"id {guild.id}\n"
         info += f"owner {guild.owner}\n"
         info += f"created {created_at}\n"
-        info += f"members {guild.member_count:,}","\n"
+        info += f"members {guild.member_count:,}\n"
         info += f"online {online} | idle {idle} | dnd {dnd} | offline {offline}\n"
         info += f"channels {text_channels} text, {voice_channels} voice, {categories} categories\n"
         info += f"roles {role_count}\n"
         info += f"emojis {static_emojis} static, {animated_emojis} animated\n"
 
         if guild.icon:
-            info += f"icon {guild.icon.url}\n"
+            info += f"[icon]({guild.icon.url})\n"
         if guild.banner:
             info += f"banner {guild.banner.url}\n"
         if guild.splash:
@@ -2730,8 +2614,13 @@ class AIResponder(discord.Client):
             async with session.get('https://nekos.life/api/v2/img/kiss') as resp:
                 if resp.status != 200:
                     return await self.send_and_clean(message.channel, "couldn't fetch kiss gif")
-                data = await resp.json()
-                gif_url = data['url']
+                try:
+                    data = await resp.json()
+                    gif_url = data.get('url')
+                    if not gif_url:
+                        return await self.send_and_clean(message.channel, "couldn't get kiss gif")
+                except Exception:
+                    return await self.send_and_clean(message.channel, "couldn't fetch kiss gif")
 
         kiss_messages = [
             f"{author.mention} [kisses]({gif_url}) {target.mention}",
