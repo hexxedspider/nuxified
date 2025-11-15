@@ -1862,7 +1862,10 @@ class AIResponder(discord.Client):
             "where is darkie?", #61
             "tf u mean meltdown\nlike autism or smth", #62
             "\"sigmas got a major hand on the war field\"", #63
-            "\"I think we should do a treaty between Kingdom of shrimps and sigmas\"" #64
+            "\"I think we should do a treaty between Kingdom of shrimps and sigmas\"", #64
+            "big dinosaur teeth", #65
+            "Bubbles!", #66
+            "Cheat Code Fanny magnet activated" #67 fuck you voss
         ]
         while True:
             new_status = self.rand.choice(status_messages)
