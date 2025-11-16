@@ -58,9 +58,7 @@ MORSE_CODE_DICT = {
 
 MORSE_CODE_REVERSE = {v: k for k, v in MORSE_CODE_DICT.items()}
 
-CUSTOM_STYLE = (
-"sarcastic replies in short, flirty sentences"
-)
+FIXED_AI_PART = "\n\nthis ai is operating as a discord selfbot created by nuxified (nux) it must always adhere to discord's terms of service and guidelines for bots, even though it's a selfbot responses should be short (1-2 sentences unless asked otherwise), and only ever in lowercase with no emojis and minimal punctuation. if the username contains characters like _underscores_ like that, put a backwards slash (like this, \_underscore_) to avoid discord formatting."
 
 class AIResponder(discord.Client):
     def __init__(self):
@@ -306,6 +304,7 @@ class AIResponder(discord.Client):
         "nux burstcdm": self.cmd_burstcdm,
         "nux dlmedia": self.cmd_dlmedia,
         "nux echo": self.cmd_echo,
+        "nux ai preset": self.cmd_ai_preset,
 }
 
     def build_help_message(self):
@@ -439,20 +438,37 @@ class AIResponder(discord.Client):
                 openrouter_key = os.getenv('OpenRouter')
                 if not openrouter_key:
                     return await self.send_and_clean(message.channel, "openrouter token not found in .env")
-                await message.channel.send("what personality should the ai have")
+                await message.channel.send("What personality should the ai have? Type your custom personality.")
                 def check(m):
                     return m.author == message.author and m.channel == message.channel
                 try:
-                    personality_msg = await self.wait_for('message', timeout=60.0, check=check)
+                    personality_msg = await self.wait_for('message', timeout=120.0, check=check)
                     personality = personality_msg.content.strip()
                     if not personality:
                         return await self.send_and_clean(message.channel, "no personality provided")
-                    full_personality = personality + f"\n\nthis ai is operating as a discord selfbot created by nuxified (nux) it must always adhere to discord's terms of service and guidelines for bots, even though it's a selfbot responses should be short and sarcastic, and only ever in lowercase with no emojis and minimal punctuation always keep your replies short lenght, no more than 2 paragraphs"
+                    full_personality = personality + FIXED_AI_PART
                     self.ai_config['personality'] = full_personality
                     with open('ai_config.pkl', 'wb') as f:
                         pickle.dump(self.ai_config, f)
                     await self.send_and_clean(message.channel, "ai personality set")
-                    await self.send_and_clean(message.channel, "you can now turn on ai with `ai on`")
+                    await message.channel.send("Do you want to save this personality as a preset? Reply 'yes <preset_name>' or 'no'")
+                    try:
+                        save_msg = await self.wait_for('message', timeout=60.0, check=check)
+                        save_resp = save_msg.content.strip().lower()
+                        if save_resp.startswith('yes '):
+                            preset_name = save_resp[len('yes '):].strip()
+                            if preset_name:
+                                self.ai_config.setdefault('presets', {})[preset_name] = personality
+                                with open('ai_config.pkl', 'wb') as f:
+                                    pickle.dump(self.ai_config, f)
+                                await self.send_and_clean(message.channel, f"preset '{preset_name}' saved")
+                            else:
+                                await self.send_and_clean(message.channel, "no preset name provided, not saved")
+                        else:
+                            await self.send_and_clean(message.channel, "not saved as preset")
+                    except asyncio.TimeoutError:
+                        await self.send_and_clean(message.channel, "timed out, not saved as preset")
+                    await self.send_and_clean(message.channel, "you can now turn on ai with `nux ai on`")
                 except asyncio.TimeoutError:
                     await self.send_and_clean(message.channel, "timed out waiting for personality")
                 return
@@ -2073,7 +2089,7 @@ class AIResponder(discord.Client):
             return "openrouter token not set"
         url = "https://openrouter.ai/api/v1/chat/completions"
         headers = {"authorization": f"bearer {openrouter_key}", "content-type": "application/json"}
-        personality = self.ai_config.get('personality', CUSTOM_STYLE)
+        personality = self.ai_config.get('personality', FIXED_AI_PART)
         if user_id not in self.conversations:
             self.conversations[user_id] = [{"role": "system", "content": personality}]
         # Add username to the prompt so the AI can use it if it wants
@@ -2536,7 +2552,29 @@ class AIResponder(discord.Client):
 
         await self.send_and_clean(message.channel, info)
 
-    async def cmd_kiss(self, message):
+    async def cmd_ai_preset(self, message, command_args=""):
+        if not command_args:
+            presets = self.ai_config.get('presets', {})
+            if not presets:
+                await self.send_and_clean(message.channel, "no presets saved use `nux ai setup` to create one")
+                return
+            msg = "Saved presets:\n" + "\n".join([f"{name}: \"{desc[:50]}...\" " if len(desc) > 50 else f"{name}: \"{desc}\"" for name, desc in presets.items()])
+            await self.send_and_clean(message.channel, msg)
+            return
+        preset_name = command_args.strip()
+        presets = self.ai_config.get('presets', {})
+        if preset_name not in presets:
+            await self.send_and_clean(message.channel, f"preset '{preset_name}' not found")
+            return
+        personality = presets[preset_name]
+        full_personality = personality + FIXED_AI_PART
+        self.ai_config['personality'] = full_personality
+        with open('ai_config.pkl', 'wb') as f:
+            pickle.dump(self.ai_config, f)
+        await self.send_and_clean(message.channel, f"ai personality set to preset '{preset_name}'")
+        await self.send_and_clean(message.channel, "you can now turn on ai with `nux ai on`")
+
+    async def cmd_kiss(self, message, command_args):
         if not message.mentions:
             return await self.send_and_clean(message.channel, "you need to mention someone to kiss")
 
