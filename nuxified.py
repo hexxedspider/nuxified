@@ -1,3 +1,8 @@
+# this is the main fork of the script, i will try to keep it updated with the latest changes.
+# i might end up actually forking the repo on github with just specific utils.
+# the folder (excluded, .gitignore) other_accounts is just this script but pasted with other names and what not, branded to those accounts.
+# it's in a seperate folder since they don't really matter to me, hence why i don't keep them updated, and dont bother trying to update them... not that you'd know anyway.
+
 import discord, asyncio, random, aiohttp, datetime, io, qrcode, requests, base64, math, yt_dlp, os, logging, re, psutil, platform, subprocess, sys, json, hashlib, urllib.parse
 from gtts import gTTS
 from redgifs import API as RedGifsAPI
@@ -100,10 +105,8 @@ class AIResponder(discord.Client):
             self.notrace_active = False
             self.ai_cooldown_seconds = 15
             self.autoreplies = {}
-        # map of channel_id -> asyncio.Task for running cdm deletions
         self.cdm_tasks = {}
         self.api = RedGifsAPI()
-        # AlexFlipnote API base URL
         self.af_api = "https://api.alexflipnote.dev"
         unique = os.getenv('TOKEN', '') or str(os.getpid())
         seed = int(hashlib.sha256(unique.encode()).hexdigest(), 16) % (10**8)
@@ -118,9 +121,9 @@ class AIResponder(discord.Client):
                 "nux mock <text>": "alternate your text casing",
                 "nux emc|dmc <text>": "encode/decode morse code",
                 "nux base64 encode/decode <text>": "encode or decode base64",
-                "nux rot <text>": "converts text into rot13",
+                "nux rot <encode|decode> <text>": "converts text into rot13",
                 "nux rvowel <text>": "removes vowels from the given text",
-                "nux piglatin <text>": "converts text into piglatin",
+                "nux piglatin <encode|decode> <text>": "converts text into piglatin",
                 "nux hash <algorithm> <text>": "hashes text using md5, sha1, sha256, or sha512",
                 "nux wordcount <text>": "counts words in the provided text",
                 "nux charfreq <text>": "displays the frequency of each character in the text"
@@ -128,13 +131,11 @@ class AIResponder(discord.Client):
             "media": {
                 "nux qr <text/url>": "generate a qr code",
                 "nux tts <text>": "convert text to speech (sends mp3)",
-                "nux captcha <text>": "adds text to a captcha template",
-                "nux dlmedia <url> <video / audio>": "download videos or audio from youtube, tiktok, pinterest, twitter (fuck x), instagram, and reddit (more websites supported soon)",
+                "nux dlmedia <url> <audio|video>": "download videos or audio from youtube, tiktok, pinterest, twitter (fuck x), instagram, and reddit (more websites supported soon)",
                 "nux pornhub <white> - <orange>": "make a image with your text in the pornhub logo style",
                 "nux didyoumean <search> - <dym>": "make a google result image that has the <search> text in the text bar, and <dym> being the blue text that would correct you",
                 "nux facts <text>": "make an image with the fact book from ed, edd n eddy using your text",
                 "nux scroll <text>": "make an image with the scroll meme format",
-                "nux togif": "turns the attached video file into a gif",
                 "nux freq <freq hz> <waveform>": "sends back an audio file with the requested hz and waveform useful for clean frequencies",
                 "nux font <fontname> <text>": "renders text using a specific font from dmfonts"
             },
@@ -143,10 +144,8 @@ class AIResponder(discord.Client):
                 "nux echo <text>": "i repeat what you say",
                 "nux fakenitro": "sends a fake nitro gift",
                 "nux achievement <text>": "send a fake minecraft achievement with your text and a random icon",
-                "nux challenge <text>": "send a fake minecraft challenge with your text and a random icon",
                 "nux cuddle <@person>": "sends a cuddling gif with both of you (you and the person you mentioned) pinged",
                 "nux weather <location>": "fetches current weather for the given location",
-                "nux use": "sends a pre-configured image and text response",
                 "nux translate <from_lang> <to_lang> <text>": "translates text between languages (e.g., en to fr)",
                 "nux lyrics <artist> - <song>": "fetches lyrics for the specified song"
             },
@@ -155,8 +154,8 @@ class AIResponder(discord.Client):
                 "nux dumpdm": "dump recent dm history to a file",
                 "nux shorten": "shorten urls using a url shortener",
                 "nux calc": "evaluate math expressions",
-                "nux hidemention": "wrap your message in spoiler tags",
                 "nux cdm": "deletes some of my messages in this dm",
+                "nux burstcdm": "deletes 5 of my recent messages in this dm",
                 "nux help": "show this help message",
                 "nux uptime": "show how long the bot has been running",
                 "nux inviteinfo <url>": "shows the info on a discord invite",
@@ -171,7 +170,7 @@ class AIResponder(discord.Client):
                 "nux avatar <@user>": "shows a user's avatar in full size",
                 "nux banner <@user>": "shows a user's banner if they have one",
                 "nux stats": "shows bot statistics and system information",
-                "nux bug <description>": "report a bug to the developer",
+                "nux bug": "report a bug to the developer",
                 "nux watch <guild_id | dm | list>": "toggle message logging for a server or all dms, or list watched servers",
                 "nux spacedhelp": "show a more spaced out version of the help message",
                 "nux statustoggle": "toggles the bot's rotating status messages on or off",
@@ -266,7 +265,6 @@ class AIResponder(discord.Client):
         "nux uptime": self.cmd_uptime,
         "nux qr": self.cmd_qr,
         "nux tts": self.cmd_tts,
-        "nux hidemention": self.cmd_hidemention,
         "nux ascii": self.cmd_ascii,
         "nux hentai": self.cmd_hentai,
         "nux thighs": self.cmd_thighs,
@@ -282,7 +280,6 @@ class AIResponder(discord.Client):
         "nux dmc": self.cmd_dmc,
         "nux fakenitro": self.cmd_fakenitro,
         "nux achievement": self.cmd_achievement,
-        "nux challenge": self.cmd_challenge,
         "nux pgif": self.cmd_pgif,
         "nux zalgo": self.cmd_zalgo,
         "nux flip": self.cmd_flip,
@@ -303,9 +300,7 @@ class AIResponder(discord.Client):
         "nux facts": self.cmd_facts,
         "nux scroll": self.cmd_scroll,
         "nux pornhub": self.cmd_pornhub,
-        "nux use": self.cmd_use,
         "nux freq": self.cmd_waveform,
-        "nux togif": self.cmd_togif,
         "nux rule34": self.cmd_rule34,
         "nux piglatin": self.cmd_piglatin,
         "nux rot": self.cmd_rot13,
@@ -328,7 +323,6 @@ class AIResponder(discord.Client):
         "nux weather": self.cmd_weather,
         "nux guilds": self.cmd_guilds,
         "nux didyoumean": self.cmd_didyoumean,
-        "nux captcha": self.cmd_captcha,
         "nux calc": self.cmd_calc,
         "nux cleaner": self.cmd_cleaner,
         "nux cdm": self.cmd_cleardmsent,
@@ -337,6 +331,9 @@ class AIResponder(discord.Client):
         "nux font": self.cmd_font,
         "nux statustoggle": self.cmd_statustoggle,
         "nux notrace": self.cmd_notrace,
+        "nux burstcdm": self.cmd_burstcdm,
+        "nux dlmedia": self.cmd_dlmedia,
+        "nux echo": self.cmd_echo,
 }
 
     def build_help_message(self):
@@ -407,14 +404,24 @@ class AIResponder(discord.Client):
         content = message.content.strip()
         lowered = content.lower()
 
-        matched_command = None
+        matched_command_key = None
+        command_args = ""
         for cmd_prefix in sorted(self.commands.keys(), key=len, reverse=True):
-            if lowered == cmd_prefix or lowered.startswith(cmd_prefix + " "):
-                matched_command = self.commands[cmd_prefix]
+            if lowered == cmd_prefix:
+                matched_command_key = cmd_prefix
+                command_args = ""
+                break
+            elif lowered.startswith(cmd_prefix + " "):
+                matched_command_key = cmd_prefix
+                command_args = content[len(cmd_prefix):].strip()
                 break
 
-        if matched_command:
-            await matched_command(message)
+        if matched_command_key:
+            command_func = self.commands[matched_command_key]
+            if not command_args:  # exact match
+                await command_func(message)
+            else:
+                await command_func(message, command_args)
             return
 
         if self.notrace_active and message.author == self.user:
@@ -429,23 +436,11 @@ class AIResponder(discord.Client):
 
         if self.ai_enabled and not lowered.startswith("nux ") and not lowered.startswith("all "):
             if self.user in message.mentions and isinstance(message.channel, discord.DMChannel):
-                user_id = message.author.id
-                current_time = datetime.datetime.utcnow()
-
-                if user_id in self.ai_cooldowns:
-                    time_diff = (current_time - self.ai_cooldowns[user_id]).total_seconds()
-                    if time_diff < self.ai_cooldown_seconds:
-                        remaining = int(self.ai_cooldown_seconds - time_diff)
-                        await self.send_and_clean(message.channel, f"cool down {remaining} seconds left")
-                        return
-
-                self.ai_cooldowns[user_id] = current_time
-
                 async with message.channel.typing():
                     delay = max(1, min(len(message.content) * 0.05, 13))
                     await asyncio.sleep(delay)
-                    reply = await self.ask_openrouter(message.author.id, message.content)
-                    await self.send_and_clean(message.channel, reply[:300])
+                    reply = await self.ask_openrouter(message.author.id, message.author.name, message.content)
+                    await self.send_and_clean(message.channel, reply)
                 return
 
         if message.author.id == self.owner_id:
@@ -490,18 +485,18 @@ class AIResponder(discord.Client):
                     await self.send_and_clean(message.channel, "timed out waiting for personality")
                 return
 
-    async def cmd_targetdm(self, message):
-        parts = message.content.strip().split(maxsplit=3)
-        if len(parts) < 4:
+    async def cmd_targetdm(self, message, command_args):
+        parts = command_args.split(maxsplit=2)
+        if len(parts) < 3:
             return await self.send_and_clean(message.channel, "usage all tdm <user_id> <message>")
 
         try:
-            user_id = int(parts[2])
+            user_id = int(parts[0])
             user = await self.fetch_user(user_id)
         except Exception as e:
             return await self.send_and_clean(message.channel, "couldn't find that user")
 
-        dm_message = parts[3]
+        dm_message = parts[1]
 
         try:
             await user.send(dm_message)
@@ -510,18 +505,18 @@ class AIResponder(discord.Client):
             await self.send_and_clean(message.channel, f"failed to send message {e}")
 
 
-    async def cmd_targetdmspam(self, message):
-        parts = message.content.strip().split(maxsplit=3)
-        if len(parts) < 4:
+    async def cmd_targetdmspam(self, message, command_args):
+        parts = command_args.split(maxsplit=2)
+        if len(parts) < 3:
             return await self.send_and_clean(message.channel, "usage nux spam <user_id> <message>")
 
         try:
-            user_id = int(parts[2])
+            user_id = int(parts[0])
             user = await self.fetch_user(user_id)
         except Exception as e:
             return await self.send_and_clean(message.channel, "couldn't find that user")
 
-        dm_message = parts[3]
+        dm_message = parts[1]
         spam_count = self.rand.randint(50, 150)
 
         await self.send_and_clean(message.channel, f"spamming {user} {spam_count} times")
@@ -539,33 +534,27 @@ class AIResponder(discord.Client):
         uptime_str = str(datetime.timedelta(seconds=int(uptime_seconds)))
 
         memory = psutil.virtual_memory()
-        cpu_usage = psutil.cpu_percent(interval=0.5)
+        cpu_usage = psutil.cpu_percent()
         ram_usage = memory.percent
-        python_version = platform.python_version()
-        system_info = f"{platform.system()} {platform.release()}"
 
         msg = (
             f"uptime {uptime_str}\n"
             f"total cpu usage {cpu_usage}%\n"
             f"total ram usage {ram_usage}%\n"
-            f"python version {python_version}\n"
-            f"system {system_info}"
         )
 
         await self.send_and_clean(message.channel, msg)
 
-    async def cmd_qr(self, message):
-        content = message.content.strip()
-        prefix = "nux qr"
-        text = content[len(prefix):].strip()
+    async def cmd_qr(self, message, command_args):
+        text = command_args
         if not text:
             return await self.send_and_clean(message.channel, "send me some text or a link to make a qr code")
 
-        parsed = urllib.parse.quote(text)
+        parsed = urllib.parse.urlparse(text)
         if parsed.scheme and parsed.netloc:
             qr_data = text
         else:
-            qr_data = text
+            qr_data = urllib.parse.quote(text)
 
         qr = qrcode.QRCode(version=1, box_size=10, border=4)
         qr.add_data(qr_data)
@@ -579,9 +568,8 @@ class AIResponder(discord.Client):
             await self.send_and_clean(message.channel, file=discord.File(fp=image_binary, filename="qr.png"))
 
     @owner_only()
-    async def cmd_nickname(self, message):
-       content = message.content.strip()
-       new_nick = content[len("nux nickname"):].strip()
+    async def cmd_nickname(self, message, command_args):
+       new_nick = command_args
 
        if not new_nick:
             await self.send_and_clean(message.channel, "please tell me the new nickname")
@@ -599,26 +587,26 @@ class AIResponder(discord.Client):
        except Exception as e:
            await self.send_and_clean(message.channel, f"failed to change nickname {e}")
 
-    async def cmd_emc(self, message):
-        content = message.content.strip()
-        text = content[len("nux emc"):].strip()
+    async def cmd_emc(self, message, command_args):
+        text = command_args
         if not text:
             await self.send_and_clean(message.channel, "please provide the text to encode")
             return
-        encoded = []
-        for char in text.upper():
-            encoded.append(MORSE_CODE_DICT.get(char, '?'))
-        await self.send_and_clean(message.channel, " ".join(encoded))
+        # Split by spaces but keep track of them
+        words = text.lower().split(' ')
+        encoded_words = []
+        for word in words:
+            encoded_chars = []
+            for char in word:
+                morse = MORSE_CODE_DICT.get(char, '?')
+                encoded_chars.append(morse)
+            if encoded_chars:  # Only add non-empty words
+                encoded_words.append(" ".join(encoded_chars))
+        result = " / ".join(encoded_words)
+        await self.send_and_clean(message.channel, f"```{result}```")
 
-    async def cmd_use(self, message):
-        use = (
-            "bruh⠀\n\n"
-        )
-        await self.send_and_clean(message.channel, use)
-
-    async def cmd_dmc(self, message):
-        content = message.content.strip()
-        code = content[len("nux dmc"):].strip()
+    async def cmd_dmc(self, message, command_args):
+        code = command_args
         if not code:
             await self.send_and_clean(message.channel, "please provide the morse code to decode")
             return
@@ -628,18 +616,17 @@ class AIResponder(discord.Client):
             chars = word.split()
             decoded_chars = [MORSE_CODE_REVERSE.get(c, '?') for c in chars]
             decoded_words.append("".join(decoded_chars))
-            await self.send_and_clean(message.channel, " ".join(decoded_words))
+        await self.send_and_clean(message.channel, " ".join(decoded_words))
 
-    async def cmd_fakenitro(self, message):
+    async def cmd_fakenitro(self, message, command_args):
         characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
         fake_code = ''.join(self.rand.choices(characters, k=16))
         fake_link = f"https://discord.gift/{fake_code}"
 
         await message.channel.send(f"{fake_link}")
 
-    async def cmd_achievement(self, message):
-        content = message.content.strip()
-        text = content[len("nux achievement"):].strip()
+    async def cmd_achievement(self, message, command_args):
+        text = command_args
         if not text:
             await self.send_and_clean(message.channel, "usage nux achievement <text>")
             return
@@ -655,7 +642,7 @@ class AIResponder(discord.Client):
         except Exception as e:
             await self.send_and_clean(message.channel, "couldn't generate achievement")
 
-    async def cmd_userinfo(self, message):
+    async def cmd_userinfo(self, message, command_args):
         if not message.mentions:
             await self.send_and_clean(message.channel, "please mention a user to inspect")
             return
@@ -698,14 +685,13 @@ class AIResponder(discord.Client):
         await self.send_and_clean(message.channel, info)
 
 
-    async def cmd_inviteinfo(self, message):
-        content = message.content.strip()
-        parts = content.split(maxsplit=1)
-        if len(parts) < 2:
+    async def cmd_inviteinfo(self, message, command_args):
+        parts = command_args.split(maxsplit=1)
+        if len(parts) < 1:
             await self.send_and_clean(message.channel, "usage nux inviteinfo <invite_code_or_url>")
             return
 
-        invite_input = parts[1]
+        invite_input = parts[0]
 
         match = re.search(
             r"(?:https?://)?(?:www\.)?(?:discord\.gg|discordapp\.com/invite)/?([a-zA-Z0-9\-]+)",
@@ -785,13 +771,11 @@ class AIResponder(discord.Client):
 
         await self.send_and_clean(message.channel, (msg))
 
-    async def cmd_help(self, message):
+    async def cmd_help(self, message, command_args=""):
         help_msg = self.build_help_message()
         chunks = self.split_message(help_msg)
-        async with message.channel.typing():
-            for chunk in chunks:
-                msg = await message.channel.send(chunk)
-                await asyncio.sleep(2.3)
+        for chunk in chunks:
+            await self.send_and_clean(message.channel, chunk)
 
     async def cmd_spacedhelp(self, message):
         help_msg = self.build_spaced_help_message()
@@ -821,9 +805,8 @@ class AIResponder(discord.Client):
 
         return chunks
 
-    async def cmd_didyoumean(self, message):
-        content = message.content.strip()
-        args = content[len("nux didyoumean"):].strip().split(" - ")
+    async def cmd_didyoumean(self, message, command_args):
+        args = command_args.split(" - ")
 
         if len(args) != 2:
             await self.send_and_clean(message.channel, "usage nux didyoumean <text1> - <text2>")
@@ -842,9 +825,8 @@ class AIResponder(discord.Client):
         except Exception as e:
             await self.send_and_clean(message.channel, "couldn't generate image")
 
-    async def cmd_facts(self, message):
-        content = message.content.strip()
-        text = content[len("nux facts"):].strip()
+    async def cmd_facts(self, message, command_args):
+        text = command_args
         if not text:
             await self.send_and_clean(message.channel, "usage nux facts <text>")
             return
@@ -860,9 +842,8 @@ class AIResponder(discord.Client):
         except Exception as e:
             await self.send_and_clean(message.channel, "couldn't generate facts")
 
-    async def cmd_scroll(self, message):
-        content = message.content.strip()
-        text = content[len("nux scroll"):].strip()
+    async def cmd_scroll(self, message, command_args):
+        text = command_args
         if not text:
             await self.send_and_clean(message.channel, "usage nux scroll <text>")
             return
@@ -878,9 +859,8 @@ class AIResponder(discord.Client):
         except Exception as e:
             await self.send_and_clean(message.channel, "couldn't generate scroll")
 
-    async def cmd_pornhub(self, message):
-        content = message.content.strip()
-        args = content[len("nux pornhub"):].strip().split(" - ")
+    async def cmd_pornhub(self, message, command_args):
+        args = command_args.split(" - ")
 
         if len(args) != 2:
             await self.send_and_clean(message.channel, "usage nux pornhub <text1> - <text2>")
@@ -898,24 +878,6 @@ class AIResponder(discord.Client):
             await self.send_and_clean(message.channel, file=discord.File(buffer, filename="pornhub.png"))
         except Exception as e:
             await self.send_and_clean(message.channel, "couldn't generate image")
-
-    async def cmd_challenge(self, message):
-        content = message.content.strip()
-        text = content[len("nux challenge"):].strip()
-        if not text:
-            await self.send_and_clean(message.channel,"usage nux challenge <text>")
-            return
-        try:
-            async with aiohttp.ClientSession() as session:
-                url = f"{self.af_api}/challenge?text={urllib.parse.quote(text)}"
-                async with session.get(url) as resp:
-                    if resp.status != 200:
-                        return await self.send_and_clean(message.channel, "couldn't generate challenge")
-                    img_bytes = await resp.read()
-            buffer = io.BytesIO(img_bytes)
-            await self.send_and_clean(message.channel, file=discord.File(buffer, filename="challenge.png"))
-        except Exception as e:
-            await self.send_and_clean(message.channel, "couldn't generate challenge")
 
     async def cmd_hentai(self, message):
         r = requests.get("https://nekobot.xyz/api/image?type=" + self.rand.choice(['hentai', 'hboobs', 'hthigh']))
@@ -1047,16 +1009,14 @@ class AIResponder(discord.Client):
         msg = self.rand.choice(slap_messages)
         await self.send_and_clean(message.channel, msg)
 
-    async def cmd_echo(self, message):
-        content = message.content.strip()
-        prefix = "nux echo"
-        echo_text = content[len(prefix):].strip()
-        if not echo_text:
+    async def cmd_echo(self, message, command_args):
+        text = command_args
+        if not text:
             await self.send_and_clean(message.channel, "you didn't tell me what to echo")
         else:
-            await self.send_and_clean(message.channel, echo_text)
+            await self.send_and_clean(message.channel, text)
 
-    async def cmd_waveform(self, message):
+    async def cmd_waveform(self, message, command_args):
         args = message.content.strip().split()
         if len(args) != 4:
             await message.channel.send("usage nux freq <frequency_hz> <wave_type (sine/square/triangle)>")
@@ -1091,27 +1051,22 @@ class AIResponder(discord.Client):
         except Exception as e:
             await message.channel.send(f"error {str(e)}")
 
-    async def cmd_tts(self, message):
-        text = message.content[len("nux tts"):].strip()
+    async def cmd_tts(self, message, command_args):
+        text = command_args.strip()
         if not text:
             return await self.send_and_clean(message.channel, "speak what, darling")
 
-        tts = gTTS(text=text, lang="en")
-        buffer = io.BytesIO()
-        tts.write_to_fp(buffer)
-        buffer.seek(0)
-        await self.send_and_clean(message.channel, file=discord.File(buffer, "tts.mp3"))
-
-    async def cmd_hidemention(self, message):
-        text = message.content[len("nux hidemention"):].strip()
-        if not text:
-            return await self.send_and_clean(message.channel, "hide what you're already invisible")
-
-        hidden = f"||{text}||"
-        await self.send_and_clean(message.channel, hidden)
-
-    async def cmd_ascii(self, message):
-        text = message.content[len("nux ascii"):].strip()
+        try:
+            tts = gTTS(text=text, lang="en")
+            buffer = io.BytesIO()
+            tts.write_to_fp(buffer)
+            buffer.seek(0)
+            await self.send_and_clean(message.channel, file=discord.File(buffer, "tts.mp3"))
+        except Exception as e:
+            return await self.send_and_clean(message.channel, f"failed to generate tts: {e}")
+        
+    async def cmd_ascii(self, message, command_args):
+        text = command_args
         if not text:
             return await self.send_and_clean(message.channel, "ascii needs a soul to shape")
 
@@ -1123,8 +1078,8 @@ class AIResponder(discord.Client):
         except Exception as e:
             await self.send_and_clean(message.channel, "couldn't ascii-fy that")
 
-    async def cmd_calc(self, message):
-        expr = message.content.strip()[len("nux calc"):].strip()
+    async def cmd_calc(self, message, command_args):
+        expr = command_args
         if not expr:
             return await self.send_and_clean(message.channel, "give me something to calculate, genius")
         try:
@@ -1170,7 +1125,7 @@ class AIResponder(discord.Client):
                         try:
                             await msg.delete()
                             deleted_count += 1
-                            await asyncio.sleep(1.15)
+                            await asyncio.sleep(1.25)
                         except asyncio.CancelledError:
                             raise
                         except Exception:
@@ -1194,33 +1149,21 @@ class AIResponder(discord.Client):
         except Exception:
             pass
 
-    async def cmd_captcha(self, message):
-        content = message.content.strip()[len("nux captcha"):].strip()
-        if not content:
-            return await self.send_and_clean(message.channel, "usage nux captcha <top> - <bottom>")
-        
-        parts = content.split(" - ", 1)
-        if len(parts) == 2:
-            top_text = parts[0].strip()
-            bottom_text = parts[1].strip()
-        else:
-            top_text = parts[0].strip()
-            bottom_text = "verify"
-        
-        if not top_text:
-            return await self.send_and_clean(message.channel, "top text cannot be empty")
-        
-        try:
-            async with aiohttp.ClientSession() as session:
-                url = f"{self.af_api}/captcha?top={urllib.parse.quote(top_text)}&bottom={urllib.parse.quote(bottom_text)}"
-                async with session.get(url) as resp:
-                    if resp.status != 200:
-                        return await self.send_and_clean(message.channel, "couldn't generate captcha")
-                    img_bytes = await resp.read()
-            buffer = io.BytesIO(img_bytes)
-            await self.send_and_clean(message.channel, file=discord.File(buffer, filename="captcha.png"))
-        except Exception as e:
-            await self.send_and_clean(message.channel, "couldn't generate captcha")
+    async def cmd_burstcdm(self, message):
+        channel = message.channel
+        deleted = 0
+        async for msg in channel.history(limit=100):
+            if msg.author.id == self.user.id:
+                try:
+                    await msg.delete()
+                    deleted += 1
+                    if deleted >= 5:
+                        break
+                    await asyncio.sleep(0.1)
+                except:
+                    pass
+        if deleted > 0:
+            await self.send_and_clean(channel, f"burst deleted {deleted} messages")
 
     async def cmd_nsfwhelp(self, message):
         nsfwhelp_msg = self.build_nsfwhelp_message()
@@ -1247,14 +1190,14 @@ class AIResponder(discord.Client):
         )
         await self.send_and_clean(message.channel, help_text)
 
-    async def cmd_zalgo(self, message):
-        text = message.content[len("nux zalgo"):].strip()
+    async def cmd_zalgo(self, message, command_args):
+        text = command_args
         if not text:
             return await self.send_and_clean(message.channel, "zalgo what")
         corrupted = ''.join(c + ''.join(self.rand.choices(zalgo_up, k=self.rand.randint(1, 3))) for c in text)
         await self.send_and_clean(message.channel, corrupted)
 
-    async def cmd_cuddle(self, message):
+    async def cmd_cuddle(self, message, command_args):
         if not message.mentions:
             await self.send_and_clean(message.channel,"you need to mention someone to cuddle")
             return
@@ -1283,16 +1226,15 @@ class AIResponder(discord.Client):
         msg = self.rand.choice(cuddle_messages)
         await self.send_and_clean(message.channel, msg)
 
-    async def cmd_flip(self, message):
-        text = message.content[len("nux flip"):].strip()
+    async def cmd_flip(self, message, command_args):
+        text = command_args
         if not text:
             return await self.send_and_clean(message.channel, "what the flip")
         flipped = text[::-1].translate(flip_map)
         await self.send_and_clean(message.channel, flipped)
 
-    async def cmd_weather(self, message):
-        content = message.content.strip()
-        args = content[len("nux weather"):].strip()
+    async def cmd_weather(self, message, command_args):
+        args = command_args.strip()
         if not args:
             return await self.send_and_clean(message.channel, "usage nux weather <location>")
         location = args
@@ -1313,16 +1255,19 @@ class AIResponder(discord.Client):
             msg = "guilds i'm in\n" + "\n".join(guild_list)
             await self.send_and_clean(message.channel, msg)
 
-    async def cmd_dlmedia(self, message):
-        content = message.content.strip()
-        parts = content.split(maxsplit=3)
+    # i have to rework this command, i dont really like how it is rn
+    async def cmd_dlmedia(self, message, command_args):
+        tokens = command_args.rsplit(' ', 1)
 
-        if len(parts) < 4 or parts[3].lower() not in ("audio", "video"):
+        if len(tokens) != 2:
             await self.send_and_clean(message.channel, "usage nux dlmedia <url> <audio|video>")
             return
 
-        url = parts[2]
-        mode = parts[3].lower()
+        url, mode = tokens
+        mode = mode.lower()
+        if mode not in ("audio", "video"):
+            await self.send_and_clean(message.channel, "usage nux dlmedia <url> <audio|video>")
+            return
         platform = "unknown"
         compress_required = False
 
@@ -1466,7 +1411,7 @@ class AIResponder(discord.Client):
             if 'filename' in locals() and os.path.exists(filename):
                 os.remove(filename)
 
-    async def cmd_base64(self, message):
+    async def cmd_base64(self, message, command_args):
         content = message.content.strip()
         args = content[len("nux base64"):].strip().split(maxsplit=1)
 
@@ -1486,14 +1431,21 @@ class AIResponder(discord.Client):
         except Exception:
             await self.send_and_clean(message.channel, "invalid input")
 
-    async def cmd_hash(self, message):
+    async def cmd_hash(self, message, command_args):
         content = message.content.strip()
         args = content[len("nux hash"):].strip().split(maxsplit=1)
 
-        if len(args) < 2:
-            return await self.send_and_clean(message.channel, "usage nux hash <algorithm> <text>")
+        if len(args) < 1:
+            return await self.send_and_clean(message.channel, "usage nux hash <algorithm> <text>\n\n-# supported algorithms: md5, sha1, sha256, sha512. type \"nux hash help\" for the help page.")
 
         algorithm = args[0].lower()
+
+        if algorithm == "help":
+            return await self.send_and_clean(message.channel, "hashes **cannot** be reversed, so you cannot get the original text back. however, if you run it again (e.g. ```nux hash md5 test```) it will always return the same hash, but that's the only thing you could do.\n\n-# test in md5 hash is \"098f6bcd4621d373cade4e832627b4f6\" by the way.")
+
+        if len(args) < 2:
+            return await self.send_and_clean(message.channel, "usage nux hash <algorithm> <text>\n\n-# supported algorithms: md5, sha1, sha256, sha512. type \"nux hash help\" for the help page.")
+
         text = args[1]
 
         try:
@@ -1512,16 +1464,16 @@ class AIResponder(discord.Client):
         except Exception as e:
             await self.send_and_clean(message.channel, f"hashing failed {e}")
 
-    async def cmd_wordcount(self, message):
-        text = message.content.strip()[len("nux wordcount"):].strip()
+    async def cmd_wordcount(self, message, command_args):
+        text = command_args
         if not text:
             return await self.send_and_clean(message.channel, "usage nux wordcount <text>")
 
         words = text.split()
         await self.send_and_clean(message.channel, f"word count {len(words)}")
 
-    async def cmd_charfreq(self, message):
-        text = message.content.strip()[len("nux charfreq"):].strip()
+    async def cmd_charfreq(self, message, command_args):
+        text = command_args
         if not text:
             return await self.send_and_clean(message.channel, "usage nux charfreq <text>")
 
@@ -1532,21 +1484,21 @@ class AIResponder(discord.Client):
         freq_str = "\n".join([f"'{c}': {count}" for c, count in sorted(freq.items())])
         await self.send_and_clean(message.channel, f"character frequency\n```{freq_str}```")
 
-    async def cmd_mock(self, message):
-        text = message.content.strip()[len("nux mock"):].strip()
+    async def cmd_mock(self, message, command_args):
+        text = command_args
         if not text:
             await self.send_and_clean(message.channel, "mock what, genius")
             return
 
-        mocked = ''.join(self.rand.choice([c.upper(), c.lower()]) for c in text)
+        mocked = ''.join(c.upper() if i % 2 == 0 else c.lower() for i, c in enumerate(text))
         await self.send_and_clean(message.channel, mocked)
 
-    async def cmd_aping(self, message):
+    async def cmd_aping(self, message, command_args):
         await self.send_and_clean(message.channel, f"nux base64 decode dW5kZWFkIFsyXQ==.")
 
     @owner_only()
-    async def cmd_cleaner(self, message):
-        args = message.content[len("nux cleaner"):].strip().split()
+    async def cmd_cleaner(self, message, command_args):
+        args = command_args.split()
         await message.delete()
         if not args:
             status = "enabled" if self.cleaner_settings["enabled"] else "disabled"
@@ -1588,27 +1540,27 @@ class AIResponder(discord.Client):
             pass
 
     @owner_only()
-    async def cmd_notrace(self, message):
+    async def cmd_notrace(self, message, command_args=""):
         self.notrace_active = not self.notrace_active
         self.save_config()
-        status = "active" if self.notrace_active else "inactive"
-        await self.send_and_clean(message.channel, f"no trace is now {status} (messages will delete after 15 seconds)")
+        status = "active, messages delete after 15 seconds." if self.notrace_active else "inactive, messages will not delete."
+        await self.send_and_clean(message.channel)
 
-    async def cmd_loser(self, message):
+    async def cmd_loser(self, message, command_args):
         async with message.channel.typing():
             await asyncio.sleep(17.3)
         msg = await message.channel.send("loser")
         await asyncio.sleep(0.5)
         await msg.delete()
 
-    async def cmd_font(self, message):
-        args = message.content.strip().split()
-        if len(args) < 3:
-            await self.send_and_clean(message.channel, "usage nux font <fontname> <text>")
+    async def cmd_font(self, message, command_args):
+        args = command_args.split()
+        if len(args) < 1:
+            await self.send_and_clean(message.channel, "usage nux font... *breath...* <arathos|berosong|betterfields|brunoblack|hanah|krondos|maskneyes|maytorm|onerock|rockaura|roomach|spider|thunder> <text>")
             return
 
-        font_name = args[2].lower()
-        text = ' '.join(args[3:])
+        font_name = args[0].lower()
+        text = ' '.join(args[1:])
 
         font_dir = 'dmfonts'
         available_fonts = {f.split('.')[0].lower(): f for f in os.listdir(font_dir) if f.endswith(('.ttf', '.otf'))}
@@ -1630,7 +1582,7 @@ class AIResponder(discord.Client):
         await message.channel.send(file=discord.File(file_path))
         os.remove(file_path)
 
-    async def cmd_dadjoke(self, message):
+    async def cmd_dadjoke(self, message, command_args):
         url = "https://icanhazdadjoke.com/"
         headers = {"accept": "application/json"}
         async with aiohttp.ClientSession() as session:
@@ -1641,71 +1593,8 @@ class AIResponder(discord.Client):
                 else:
                     await self.send_and_clean(message.channel, "couldn't reach the dad joke server guess that's the joke")
 
-    async def cmd_togif(self, message):
-        if not message.attachments:
-            return await message.channel.send("please attach a video file")
-
-        attachment = message.attachments[0]
-        if not attachment.filename.endswith(('.mp4', '.mov', '.avi', '.webm', '.mkv')):
-            return await message.channel.send("unsupported file type please upload a video")
-
-        await message.channel.send("downloading video")
-
-        video_bytes = await attachment.read()
-        input_path = f"temp_video_{message.id}.mp4"
-        output_path = f"temp_gif_{message.id}.gif"
-
-        with open(input_path, 'wb') as f:
-            f.write(video_bytes)
-
-        await message.channel.send("converting to gif")
-
-        fps = 60
-        scale = 500
-        max_size = 10 * 1024 * 1024
-        success = False
-
-        while True:
-            ffmpeg_command = [
-                'ffmpeg',
-                '-y',
-                '-i', input_path,
-                '-vf', f'fps={fps},scale={scale}:-1:flags=lanczos',
-                output_path
-            ]
-
-            process = subprocess.run(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-            if process.returncode != 0:
-                await message.channel.send("ffmpeg conversion failed")
-                os.remove(input_path)
-                return
-
-            file_size = os.path.getsize(output_path)
-            print(f"current gif size {file_size / (1024 * 1024):.2f} mb at {fps} fps, width {scale}px")
-
-            if file_size <= max_size:
-                success = True
-                break
-
-            if fps > 10:
-                fps -= 5
-            elif scale > 320:
-                scale -= 40
-            else:
-                break
-
-        if success:
-            await message.channel.send("conversion complete", file=discord.File(output_path))
-        else:
-            await message.channel.send("could not reduce file under 10mb, try a shorter or smaller video")
-
-        os.remove(input_path)
-        if os.path.exists(output_path):
-            os.remove(output_path)
-
-    async def cmd_shorten(self, message):
-        content = message.content.strip()[len("nux shorten"):].strip()
+    async def cmd_shorten(self, message, command_args):
+        content = command_args
 
         if not content:
             return await self.send_and_clean(
@@ -1776,19 +1665,18 @@ class AIResponder(discord.Client):
             print("[shorten error]", repr(e))
             await self.send_and_clean(message.channel, f"something blocked the shortening spell `{e}`")
 
-    async def cmd_id(self, message):
+    async def cmd_id(self, message, command_args):
         async with message.channel.typing():
             await asyncio.sleep(3.627)
             user = message.author
             content = (
-                f"identified\n\n"
                 f"username {user.name}\n"
                 f"user id {user.id}\n"
-                "id inspection complete you still exist"
+                "you still exist"
             )
             await self.send_and_clean(message.channel, content)
 
-    async def cmd_dumpdm(self, message):
+    async def cmd_dumpdm(self, message, command_args):
         messages = []
         async with message.channel.typing():
             await asyncio.sleep(7.836)
@@ -1872,12 +1760,17 @@ class AIResponder(discord.Client):
             "\"I think we should do a treaty between Kingdom of shrimps and sigmas\"", #64
             "big dinosaur teeth", #65
             "Bubbles!", #66
-            "Cheat Code Fanny magnet activated" #67 fuck you voss
+            "Cheat Code Fanny magnet activated", #67 fuck you voss
+            "this is more than a sick love story", #68
+            "love, i cant ignore you", #69
+            "do anything for you", #70
+            "spotify.com/playlist/7t0InrUUJIlkExhF6b2r4B?si=03052a278395491f", #71
+            "as of nov 15th my status changes every 30 seconds"
         ]
         while True:
             new_status = self.rand.choice(status_messages)
             await self.change_presence(activity=discord.CustomActivity(name=new_status), status=discord.Status.online)
-            await asyncio.sleep(20)
+            await asyncio.sleep(30)
 
     @owner_only()
     async def cmd_statustoggle(self, message):
@@ -2158,8 +2051,8 @@ class AIResponder(discord.Client):
         categories = ', '.join(nsfw_categories.keys())
         return await self.send_and_clean(message.channel, f"available nsfw categories {categories}")
 
-    async def cmd_define(self, message):
-        term = message.content.strip()[len("nux define"):].strip()
+    async def cmd_define(self, message, command_args):
+        term = command_args.strip()
         if not term:
             return await self.send_and_clean(message.channel, "define what")
         url = f"https://api.dictionaryapi.dev/api/v2/entries/en/{term}"
@@ -2187,8 +2080,8 @@ class AIResponder(discord.Client):
             except Exception:
                 await self.send_and_clean(message.channel, f"couldn't process definition for {term}")
 
-    async def cmd_udefine(self, message):
-        term = message.content.strip()[len("nux udefine"):].strip()
+    async def cmd_udefine(self, message, command_args):
+        term = command_args.strip()
         if not term:
             return await self.send_and_clean(message.channel, "give me a word")
         url = f"http://api.urbandictionary.com/v0/define?term={term}"
@@ -2203,7 +2096,7 @@ class AIResponder(discord.Client):
         example = top.get("example", "").replace("[", "").replace("]", "")
         await self.send_and_clean(message.channel, f"{term} (ud) {definition}\n» {example}\n{top.get('thumbs_up',0)} | {top.get('thumbs_down',0)}")
 
-    async def ask_openrouter(self, user_id, user_input):
+    async def ask_openrouter(self, user_id, username, user_input):
         openrouter_key = os.getenv('OpenRouter')
         if not openrouter_key:
             return "openrouter token not set"
@@ -2212,80 +2105,129 @@ class AIResponder(discord.Client):
         personality = self.ai_config.get('personality', CUSTOM_STYLE)
         if user_id not in self.conversations:
             self.conversations[user_id] = [{"role": "system", "content": personality}]
-        self.conversations[user_id].append({"role": "user", "content": user_input})
+        # Add username to the prompt so the AI can use it if it wants
+        user_message = f"From {username}: {user_input}"
+        self.conversations[user_id].append({"role": "user", "content": user_message})
         self.conversations[user_id] = self.conversations[user_id][-30:]
-        payload = {
-            "model": "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
-            "messages": self.conversations[user_id],
-            "stream": False,
-            "max_tokens": 500
-        }
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, headers=headers, json=payload) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        reply = data["choices"][0]["message"]["content"].strip()
-                        sentences = reply.split(". ")
-                        short_reply = ". ".join(sentences[:2]).strip()
-                        if not short_reply.endswith(('.', '!', '?')):
-                            short_reply += "."
-                        self.conversations[user_id].append({"role": "assistant", "content": short_reply})
-                        self.last_ai = True
-                        return short_reply[:300]
-                    else:
-                        print(f"openrouter error {resp.status} {await resp.text()}")
-                        return "i errored sorry"
-        except Exception as e:
-            print("error communicating with openrouter", e)
-            return "i can't reach my thoughts at the moment"
+        
+        models = [
+            "z-ai/glm-4.5-air:free",
+            "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
+            "meituan/longcat-flash-chat:free",
+            "nousresearch/hermes-3-llama-3.1-405b:free",
+            "arliai/qwq-32b-arliai-rpr-v1:free"
+        ]
+        
+        for model in models:
+            payload = {
+                "model": model,
+                "messages": self.conversations[user_id],
+                "stream": False,
+                "max_tokens": 350
+            }
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, headers=headers, json=payload) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            reply = data["choices"][0]["message"]["content"].strip()
+                            sentences = reply.split(". ")
+                            short_reply = ". ".join(sentences[:2]).strip()
+                            if not short_reply.endswith(('.', '!', '?')):
+                                short_reply += "."
+                            self.conversations[user_id].append({"role": "assistant", "content": short_reply})
+                            self.last_ai = True
+                            return short_reply
+                        else:
+                            print(f"openrouter error with {model} {resp.status}")
+                            continue
+            except Exception as e:
+                print(f"error with {model}: {e}")
+                continue
+        
+        return "i errored sorry"
 
-    async def cmd_piglatin(self, message):
-        text = message.content.strip()[len("nux piglatin"):].strip()
+    async def cmd_piglatin(self, message, command_args):
+        content = message.content.strip()
+        args = content[len("nux piglatin"):].strip().split(maxsplit=1)
+
+        if len(args) < 1 or args[0] not in ["encode", "decode"]:
+            return await self.send_and_clean(message.channel, "usage nux piglatin <encode|decode> <text>")
+
+        action = args[0]
+        text = args[1] if len(args) > 1 else ""
+        
         if not text:
-            return await self.send_and_clean(message.channel, "usage nux piglatin <text>")
+            return await self.send_and_clean(message.channel, "usage nux piglatin <encode|decode> <text>")
 
-        def piglatinify(word):
-            vowels = "aeiouaeiou"
-            if word[0] in vowels:
-                return word + "yay"
-            else:
-                for i, letter in enumerate(word):
-                    if letter in vowels:
-                        return word[i:] + word[:i] + "ay"
-                return word + "ay"
-
-        result = ' '.join([piglatinify(word) for word in text.split()])
+        if action == "encode":
+            def piglatinify(word):
+                vowels = "aeiouAEIOU"
+                if word[0] in vowels:
+                    return word + "yay"
+                else:
+                    for i, letter in enumerate(word):
+                        if letter in vowels:
+                            return word[i:] + word[:i] + "ay"
+                    return word + "ay"
+            
+            result = ' '.join([piglatinify(word) for word in text.split()])
+        else:  # decode
+            def unpiglatinify(word):
+                if word.endswith("yay"):
+                    return word[:-3]
+                elif word.endswith("ay"):
+                    word = word[:-2]
+                    for i in range(len(word)):
+                        rotated = word[i:] + word[:i]
+                        vowels = "aeiouAEIOU"
+                        if rotated[0] in vowels or i == len(word) - 1:
+                            return rotated
+                    return word
+                return word
+            
+            result = ' '.join([unpiglatinify(word) for word in text.split()])
+        
         await self.send_and_clean(message.channel, result)
 
     async def cmd_fexample(self, message):
         await self.send_and_clean(message.channel, f"this is what it looks like currently the timestamps are current though, as it's 6/28/25, at 4:30 a.m. when writing out this message")
 
-    async def cmd_rot13(self, message):
-        text = message.content.strip()[len("nux rot13"):].strip()
-        if not text:
-            return await self.send_and_clean(message.channel, "usage nux rot13 <text>")
+    async def cmd_rot13(self, message, command_args):
+        content = message.content.strip()
+        args = content[len("nux rot"):].strip().split(maxsplit=1)
 
-        result = text.translate(str.maketrans(
-            "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz",
-            "nopqrstuvwxyzabcdefghijklm nopqrstuvwxyzabcdefghijklm"
-        ))
+        if len(args) < 1 or args[0] not in ["encode", "decode"]:
+            return await self.send_and_clean(message.channel, "usage nux rot <encode|decode> <text>")
+
+        action = args[0]
+        text = args[1] if len(args) > 1 else ""
+        
+        if not text:
+            return await self.send_and_clean(message.channel, "usage nux rot <encode|decode> <text>")
+
+        rot13_map = str.maketrans(
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+            "nopqrstuvwxyzabcdefghijklmNOPQRSTUVWXYZABCDEFGHIJKLM"
+        )
+        
+        result = text.translate(rot13_map)
         await self.send_and_clean(message.channel, result)
 
-    async def cmd_removevowels(self, message):
-        text = message.content.strip()[len("nux removevowels"):].strip()
+    async def cmd_removevowels(self, message, command_args):
+        text = command_args.strip()
         if not text:
             return await self.send_and_clean(message.channel, "usage nux removevowels <text>")
 
         vowels = "aeiouaeiou"
-        result = ''.join([char for char in text if char not in vowels])
+        result = ''.join([char for char in text.lower() if char not in vowels])
         await self.send_and_clean(message.channel, result)
 
     async def cmd_ping(self, message):
         latency = round(self.latency * 1000)
         await self.send_and_clean(message.channel, f"{latency}ms")
 
-    async def cmd_roleinfo(self, message):
+    async def cmd_roleinfo(self, message, command_args):
        if not message.role_mentions:
            return await self.send_and_clean(message.channel, "please mention a role to inspect")
 
@@ -2415,33 +2357,43 @@ class AIResponder(discord.Client):
         import sys
         sys.exit(0)
 
-    async def cmd_translate(self, message):
-        args = message.content.strip()[len("nux translate"):].strip().split(maxsplit=2)
+    async def cmd_translate(self, message, command_args):
+        args = command_args.strip().split(maxsplit=2)
         if len(args) < 3:
             return await self.send_and_clean(message.channel, "usage nux translate <from_lang> <to_lang> <text>")
         from_lang, to_lang, text = args
         translator = Translator()
         try:
-            translated = translator.translate(text, src=from_lang, dest=to_lang)
+            translated = await translator.translate(text, src=from_lang, dest=to_lang)
             await self.send_and_clean(message.channel, f"{from_lang} → {to_lang} {translated.text}")
         except Exception as e:
             await self.send_and_clean(message.channel, f"translation failed {e}")
 
-    async def cmd_lyrics(self, message):
-        args = message.content.strip()[len("nux lyrics"):].strip().split(" - ", 1)
+    async def cmd_lyrics(self, message, command_args):
+        args = command_args.strip().split(" - ", 1)
         if len(args) < 2:
             return await self.send_and_clean(message.channel, "usage nux lyrics <artist> - <song>")
         artist, song = args
-        url = f"https://api.lyrics.ovh/v1/{urllib.parse.quote(artist)}/{urllib.parse.quote(song)}"
+        query = f"{artist} - {song}"
+        url = "https://lrclib.net/api/search"
+        params = {"q": query}
         async with aiohttp.ClientSession() as session:
-            async with session.get(url) as resp:
+            async with session.get(url, params=params) as resp:
                 if resp.status != 200:
                     return await self.send_and_clean(message.channel, "lyrics not found")
                 data = await resp.json()
-                lyrics = data.get("lyrics", "no lyrics found")
+                if not data:
+                    return await self.send_and_clean(message.channel, "lyrics not found")
+                top_result = data[0]
+                lyrics = top_result.get("plainLyrics", "no lyrics found")
                 if len(lyrics) > 2000:
                     lyrics = lyrics[:1997] + "..."
-                await self.send_and_clean(message.channel, f"{artist} - {song}\n{lyrics}")
+                track_name = top_result.get("trackName", song)
+                album_name = top_result.get("albumName", "")
+                header = f"{artist} - {track_name}"
+                if album_name:
+                    header += f" ({album_name})"
+                await self.send_and_clean(message.channel, f"{header}\n{lyrics}")
 
     async def cmd_usercount(self, message):
         if not message.guild:
@@ -2453,7 +2405,7 @@ class AIResponder(discord.Client):
         total = message.guild.member_count
         await self.send_and_clean(message.channel, f"server member count\nonline {online}\nidle {idle}\ndnd {dnd}\noffline {offline}\ntotal {total}")
 
-    async def cmd_iplookup(self, message):
+    async def cmd_iplookup(self, message, command_args):
         ip = message.content.strip()[len("nux iplookup"):].strip()
         if not ip:
             return await self.send_and_clean(message.channel, "usage nux iplookup <ip>")
@@ -2645,18 +2597,16 @@ class AIResponder(discord.Client):
         result = self.rand.choice(["heads", "tails"])
         await self.send_and_clean(message.channel, f"coin flip {result}")
 
-    async def cmd_avatar(self, message):
+    async def cmd_avatar(self, message, command_args=""):
         if not message.mentions:
             user = message.author
         else:
             user = message.mentions[0]
 
         avatar_url = user.avatar.url if user.avatar else user.default_avatar.url
-        embed = discord.Embed(title=f"{user}'s avatar", color=0x00ff00)
-        embed.set_image(url=avatar_url)
-        await self.send_and_clean(message.channel, embed=embed)
+        await self.send_and_clean(message.channel, f"{user}'s [avatar]({avatar_url})")
 
-    async def cmd_banner(self, message):
+    async def cmd_banner(self, message, command_args=""):
         if not message.mentions:
             user = message.author
         else:
@@ -2666,9 +2616,7 @@ class AIResponder(discord.Client):
             return await self.send_and_clean(message.channel, f"{user.mention} doesn't have a banner set")
 
         banner_url = user.banner.url
-        embed = discord.Embed(title=f"{user}'s banner", color=0x00ff00)
-        embed.set_image(url=banner_url)
-        await self.send_and_clean(message.channel, embed=embed)
+        await self.send_and_clean(message.channel, f"{user}'s [banner]({banner_url})")
 
     async def cmd_wiki(self, message):
         query = message.content.strip()[len("nux wiki"):].strip()
@@ -2761,7 +2709,7 @@ class AIResponder(discord.Client):
         await self.send_and_clean(message.channel, "send a [report](https://nukumoxy.netlify.app/), and it'll send to [here.](https://discord.gg/63mSzU8hkR)")
         await self.send_and_clean(message.channel, "\n\n-# originally, you would send a description and it would send a webhook embed to my server, but it would 100% always make your account need to reset it's password.")
 
-    async def cmd_watch(self, message):
+    async def cmd_watch(self, message, command_args):
         args = message.content.lower().split()
         if len(args) < 3:
             return await self.send_and_clean(message.channel, "usage: nux watch <guild_id | dm | list>")

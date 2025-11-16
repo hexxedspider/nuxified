@@ -6,6 +6,8 @@ ai_config.pkl
 config.pkl
 
 **/logs
+**/__pycache__
+**/other_accounts
 
 femboy.py
 lovebound.py
