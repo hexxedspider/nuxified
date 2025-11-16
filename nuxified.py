@@ -31,6 +31,7 @@ flip_map = str.maketrans(
 load_dotenv()
 ALLOWED_USER_IDS = set(int(x) for x in os.getenv('allowed', '').split(',') if x.strip())
 TOKEN = os.getenv('nuxified')
+VERSION = "1.0.2"  # Update this when you release a new version
 
 nsfw_categories = {
 "ass": ["Ass", "SexyAss", "pawgtastic", "bigasses", "assgirls", "BigAss", "booty_queens", "hugeasses", "AssPillow", "OiledAss"],
@@ -168,8 +169,9 @@ class AIResponder(discord.Client):
                 "nux avatar <@user>": "shows a user's avatar in full size",
                 "nux banner <@user>": "shows a user's banner if they have one",
                 "nux stats": "shows bot statistics and system information",
-                "nux bug": "report a bug to the developer",
-                "nux watch <guild_id | dm | list>": "toggle message logging for a server or all dms, or list watched servers",
+    "nux bug": "report a bug to the developer",
+    "nux update": "check for script updates on GitHub",
+    "nux watch <guild_id | dm | list>": "toggle message logging for a server or all dms, or list watched servers",
                 "nux spacedhelp": "show a more spaced out version of the help message",
                 "nux statustoggle": "toggles the bot's rotating status messages on or off",
                 "nux notrace": "toggles a mode where all my messages delete after 15 seconds",
@@ -228,6 +230,7 @@ class AIResponder(discord.Client):
         "nux github": self.cmd_github,
         "nux stats": self.cmd_stats,
         "nux bug": self.cmd_bug,
+        "nux update": self.cmd_update,
         "nux dumpdm": self.cmd_dumpdm,
         "nux help": self.cmd_help,
         "nux define": self.cmd_define,
@@ -2717,6 +2720,23 @@ class AIResponder(discord.Client):
     async def cmd_bug(self, message):
         await self.send_and_clean(message.channel, "send a [report](https://nukumoxy.netlify.app/), and it'll send to [here.](https://discord.gg/63mSzU8hkR)")
         await self.send_and_clean(message.channel, "\n\n-# originally, you would send a description and it would send a webhook embed to my server, but it would 100% always make your account need to reset it's password.")
+
+    async def cmd_update(self, message):
+        try:
+            url = "https://api.github.com/repos/hexxedspider/nuxified/releases/latest"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        latest_version = data.get('tag_name', '')
+                        if latest_version and latest_version != f"v{VERSION}":
+                            await self.send_and_clean(message.channel, f"your version: v{VERSION}\nlatest version: {latest_version}\nupdate available at https://github.com/hexxedspider/nuxified/releases/latest")
+                        else:
+                            await self.send_and_clean(message.channel, f"your version: v{VERSION}\nyou are up to date")
+                    else:
+                        await self.send_and_clean(message.channel, "failed to check for updates")
+        except Exception as e:
+            await self.send_and_clean(message.channel, f"error checking updates: {e}")
 
     async def cmd_watch(self, message, command_args):
         args = message.content.lower().split()
