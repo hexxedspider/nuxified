@@ -188,36 +188,8 @@ class AIResponder(discord.Client):
         "nux ass": "the 1stnd best thing to ever exist",
         "nux boobs": "what do you think",
         "nux pussy": "do i need to explain",
-        "nux pgif": "porn gif, gif of nsfw",
+        "nux pgif": "porn gif, pgif, yk?",
         "nux neko": "cat-girl related",
-        "nux trap": "sends a random trap image",
-        "nux blowjob": "sends a random blowjob image",
-        "nux cum": "sends a random cum image",
-        "nux feet": "sends a random feet image",
-        "nux yuri": "sends a random yuri image",
-        "nux futanari": "sends a random futanari image",
-        "nux ero": "sends a random ero image",
-        "nux solo": "sends a random solo image",
-        "nux tits": "sends a random tits image",
-        "nux lewd": "sends a random lewd image",
-        "nux sologif": "sends a random solo gif",
-        "nux wallpaper": "sends a random wallpaper",
-        "nux meow": "sends a random cat image",
-        "nux lizard": "sends a random lizard image",
-        "nux fox_girl": "sends a random fox girl image",
-        "nux hug": "sends a random hug gif",
-        "nux pat": "sends a random pat gif",
-        "nux slap": "sends a random slap gif",
-        "nux punch": "sends a random punch gif",
-        "nux handhold": "sends a random handhold gif",
-        "nux nom": "sends a random nom gif",
-        "nux bite": "sends a random bite gif",
-        "nux glomp": "sends a random glomp gif",
-        "nux smug": "sends a random smug image",
-        "nux baka": "sends a random baka gif",
-        "nux poke": "sends a random poke gif",
-        "nux dance": "sends a random dance gif",
-        "nux cringe": "sends a random cringe gif",
             },
             "reddit based": {
                 "nux nsfw <ass>": "idk what to write for this one i started at the bottom of this list and worked my way up",
@@ -879,13 +851,13 @@ class AIResponder(discord.Client):
         except Exception as e:
             await self.send_and_clean(message.channel, "couldn't generate image")
 
-    async def cmd_hentai(self, message):
+    async def cmd_hentai(self, message, commands_args=""):
         r = requests.get("https://nekobot.xyz/api/image?type=" + self.rand.choice(['hentai', 'hboobs', 'hthigh']))
         data = r.json()
         await self.send_and_clean(message.channel, data.get("message", "no image found"))
 
     async def cmd_thighs(self, message):
-        r = requests.get("https://nekobot.xyz/api/image?type=thighs")
+        r = requests.get("https://nekobot.xyz/api/image?type=thigh")
         data = r.json()
         await self.send_and_clean(message.channel, data.get("message", "no image found"))
 
@@ -1788,9 +1760,8 @@ class AIResponder(discord.Client):
             self.save_config()
             await self.send_and_clean(message.channel, "status messages are now on")
 
-    async def cmd_nsfw(self, message):
+    async def cmd_nsfw(self, message, command_args=""):
         args = message.content.strip().split()
-        print("args", args)
 
         if len(args) < 3:
             return await self.send_and_clean(message.channel, "usage nux nsfw <category> [number]\nunsure of the categories use nux nsfwlist")
@@ -1899,7 +1870,7 @@ class AIResponder(discord.Client):
         else:
             return await self.send_and_clean(message.channel, "could not find valid media after several attempts try again later")
 
-    async def cmd_redgif(self, message):
+    async def cmd_redgif(self, message, command_args):
         args = message.content.strip().split()
 
         if len(args) < 3:
@@ -1968,7 +1939,7 @@ class AIResponder(discord.Client):
         finally:
             pass
 
-    async def cmd_rule34(self, message):
+    async def cmd_rule34(self, message, command_args):
         args = message.content.strip().split()
 
         if len(args) < 3:
