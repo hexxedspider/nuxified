@@ -7,10 +7,11 @@ import discord, asyncio, random, aiohttp, datetime, io, qrcode, requests, base64
 from gtts import gTTS
 from redgifs import API as RedGifsAPI
 from pyfiglet import figlet_format
-from PIL import Image, ImageDraw, ImageFont, ImageSequence, ImageOps
+from PIL import Image, ImageDraw, ImageFont
 from dotenv import load_dotenv
+import barcode
+from barcode.writer import ImageWriter
 from googletrans import Translator
-import alexflipnote as AlexFlipnote
 import scipy.signal as sp_signal
 import numpy as np
 import soundfile as sf
@@ -70,13 +71,17 @@ class AIResponder(discord.Client):
         self.status_task = None
         self.status_enabled = False
         self.ai_enabled = False
-        self.notrace_active = False
-        self.notrace_messages = []
+        self.ghost_mode = False
+        self.saved_activity = None
+        self.saved_status = None
+        self.saved_status_enabled = False
         self.last_ai = False
         self.owner_id = 1136337246631497849
         self.reset_last_ai = None
         self.watched_guilds = set()
         self.watch_all_dms = False # nux watch cmd, very useful teehee
+        self.tracked_joins = set()
+        self.join_webhook = None
         self.ai_cooldowns = {}
         self.ai_cooldown_seconds = 15
         if os.path.exists('ai_config.pkl'):
@@ -89,21 +94,29 @@ class AIResponder(discord.Client):
                 config_data = pickle.load(f)
                 self.watched_guilds = config_data.get('watched_guilds', set())
                 self.watch_all_dms = config_data.get('watch_all_dms', False)
+                self.tracked_joins = config_data.get('tracked_joins', set())
+                self.join_webhook = config_data.get('join_webhook', None)
                 self.cleaner_settings = config_data.get('cleaner_settings', {"enabled": False, "delay": 1})
                 self.status_enabled = config_data.get('status_enabled', False)
                 self.ai_enabled = config_data.get('ai_enabled', False)
-                self.notrace_active = config_data.get('notrace_active', False)
                 self.ai_cooldown_seconds = config_data.get('ai_cooldown_seconds', 15)
                 self.autoreplies = config_data.get('autoreplies', {})
+                self.ghost_mode = config_data.get('ghost_mode', config_data.get('notrace_active', False))
+                self.saved_activity = config_data.get('saved_activity', None)
+                self.saved_status = config_data.get('saved_status', None)
+                self.saved_status_enabled = config_data.get('saved_status_enabled', False)
         else:
             self.watched_guilds = set()
             self.watch_all_dms = False
             self.cleaner_settings = {"enabled": False, "delay": 1}
             self.status_enabled = False
             self.ai_enabled = False
-            self.notrace_active = False
             self.ai_cooldown_seconds = 15
             self.autoreplies = {}
+            self.ghost_mode = False
+            self.saved_activity = None
+            self.saved_status = None
+            self.saved_status_enabled = False
         self.cdm_tasks = {}
         self.api = RedGifsAPI()
         self.af_api = "https://api.alexflipnote.dev"
@@ -148,7 +161,12 @@ class AIResponder(discord.Client):
                 "nux cuddle <@person>": "sends a cuddling gif with both of you (you and the person you mentioned) pinged",
                 "nux weather <location>": "fetches current weather for the given location",
                 "nux translate <from_lang> <to_lang> <text>": "translates text between languages (e.g., en to fr)",
-                "nux lyrics <artist> - <song>": "fetches lyrics for the specified song"
+                "nux lyrics <artist> - <song>": "fetches lyrics for the specified song",
+                "nux rhyme <word>": "find words that rhyme with the given word",
+                "nux synonym <word>": "find synonyms for the given word",
+                "nux barcode <text>": "generate a barcode for the given text",
+                "nux nasaapod": "fetch NASA's Astronomy Picture of the Day",
+                "nux osu <username>": "get a link to osu! user profile"
             },
             "utilities": {
                 "nux id": "show your user id and info",
@@ -160,8 +178,8 @@ class AIResponder(discord.Client):
                 "nux help": "show this help message",
                 "nux uptime": "show how long the bot has been running",
                 "nux inviteinfo <url>": "shows the info on a discord invite",
-                "nux uinfo <@person>": "extract as much info as i can from the mentioned person make sure to use '@silent' so you don't give a notification to the person, even though you pinged them",
-                "nux roleinfo <@role>": "extract as much info as i can from the mentioned role make sure to use '@silent' so you don't give a notification to the role",
+                "nux uinfo <@person>": "extract as much info as i can from the mentioned person.",
+                "nux roleinfo <@role>": "extract as much info as i can from the mentioned role.",
                 "nux ping": "returns my ping in milliseconds (ms)",
                 "nux usercount": "displays member count in the server (online/idle/dnd/offline)",
                 "nux iplookup <ip>": "look up information about an ip address",
@@ -173,10 +191,14 @@ class AIResponder(discord.Client):
                 "nux stats": "shows bot statistics and system information",
     "nux bug": "report a bug to the developer",
     "nux update": "check for script updates on GitHub",
-    "nux watch <guild_id | dm | list>": "toggle message logging for a server or all dms, or list watched servers",
+                "nux joinwh <url>": "set webhook url for join notifications",
+                "nux trackjoins <guild_id | list>": "toggle or list join tracking for guilds",
+                "nux watch <guild_id | dm | list>": "toggle message logging for a server or all dms, or list watched servers",
                 "nux spacedhelp": "show a more spaced out version of the help message",
                 "nux statustoggle": "toggles the bot's rotating status messages on or off",
-                "nux notrace": "toggles a mode where all my messages delete after 15 seconds",
+                "nux ghost": "toggles entirely traceless mode",
+                "nux ai memory <user_id>": "shows ai conversation history with user",
+                "nux learn <phrase> | <response>": "teaches custom ai responses"
             },
             "restricted / misc commands you dont have access to, or don't fit in the categories": {
                 "nux ocmds": "sends a message with commands only the owner can use",
@@ -305,13 +327,22 @@ class AIResponder(discord.Client):
         "nux insane": self.cmd_loser,
         "nux font": self.cmd_font,
         "nux statustoggle": self.cmd_statustoggle,
-        "nux notrace": self.cmd_notrace,
+        "nux ghost": self.cmd_ghost,
         "nux burstcdm": self.cmd_burstcdm,
         "nux dlmedia": self.cmd_dlmedia,
         "nux echo": self.cmd_echo,
         "nux ai preset": self.cmd_ai_preset,
         "nux anagram": self.cmd_anagram,
         "nux uuid": self.cmd_uuid,
+        "nux joinwh": self.cmd_setjoinwebhook,
+        "nux trackjoins": self.cmd_trackjoins,
+        "nux ai memory": self.cmd_ai_memory,
+        "nux learn": self.cmd_learn,
+        "nux rhyme": self.cmd_rhyme,
+        "nux synonym": self.cmd_synonym,
+        "nux barcode": self.cmd_barcode,
+        "nux nasaapod": self.cmd_nasaapod,
+        "nux osu": self.cmd_osu,
 }
 
     def build_help_message(self):
@@ -365,7 +396,7 @@ class AIResponder(discord.Client):
         # this is how i use to have my status cycle, but that new command does it for me
         # self.status_task = self.loop.create_task(self.change_status_periodically())
         print(f"{self.user}")
-        if getattr(self, 'status_enabled', False) and not getattr(self, 'status_task', None):
+        if getattr(self, 'status_enabled', False) and not getattr(self, 'status_task', None) and not self.ghost_mode:
             try:
                 self.status_task = self.loop.create_task(self.change_status_periodically())
             except Exception:
@@ -402,8 +433,9 @@ class AIResponder(discord.Client):
                 await command_func(message, command_args)
             return
 
-        if self.notrace_active and message.author == self.user:
-            asyncio.create_task(self.delete_after_delay(message, 15))
+        if self.ghost_mode and message.author == self.user:
+            await asyncio.sleep(15)
+            await message.delete()
 
         if hasattr(self, 'autoreplies') and self.autoreplies:
             for trigger, responses in self.autoreplies.items():
@@ -411,6 +443,11 @@ class AIResponder(discord.Client):
                     response = self.rand.choice(responses)
                     await self.send_and_clean(message.channel, response)
                     break
+
+        custom_responses = self.ai_config.get('custom_responses', {})
+        if lowered in custom_responses:
+            await self.send_and_clean(message.channel, custom_responses[lowered])
+            return
 
         if self.ai_enabled and not lowered.startswith("nux ") and not lowered.startswith("all "):
             if self.user in message.mentions and isinstance(message.channel, discord.DMChannel):
@@ -1534,11 +1571,35 @@ class AIResponder(discord.Client):
             pass
 
     @owner_only()
-    async def cmd_notrace(self, message, command_args=""):
-        self.notrace_active = not self.notrace_active
+    async def cmd_ghost(self, message, command_args=""):
+        if not self.ghost_mode: # Activating ghost mode
+            self.saved_activity = getattr(self.user, 'activity', None)
+            self.saved_status = getattr(self.user, 'status', discord.Status.online)
+            self.saved_status_enabled = self.status_enabled
+
+            if self.status_task:
+                self.status_task.cancel()
+                self.status_task = None
+            self.status_enabled = False # Ensure status messages are off in ghost mode
+
+            await self.change_presence(activity=None, status=discord.Status.offline)
+            self.ghost_mode = True
+            status_message = "active, profile is offline and messages delete after 15 seconds."
+        else: # Deactivating ghost mode
+            self.ghost_mode = False
+            self.status_enabled = self.saved_status_enabled # Restore previous status_enabled state
+
+            if self.status_enabled:
+                await self.change_presence(activity=self.saved_activity, status=self.saved_status)
+                if not self.status_task or self.status_task.done():
+                    self.status_task = self.loop.create_task(self.change_status_periodically())
+            else:
+                await self.change_presence(activity=None, status=discord.Status.online) # Default to online if status messages were off
+
+            status_message = "inactive, profile is online and messages will not delete."
+
         self.save_config()
-        status = "active, messages delete after 15 seconds." if self.notrace_active else "inactive, messages will not delete."
-        await self.send_and_clean(message.channel)
+        await self.send_and_clean(message.channel, status_message)
 
     async def cmd_loser(self, message, command_args):
         async with message.channel.typing():
@@ -1741,9 +1802,9 @@ class AIResponder(discord.Client):
             "i will add whatever you want here", #51
             "discord.gg/dEnF55hgaG - free movies + shows", #52
             "the mitochondria is the powerhouse of the cell", #53
-            "i love voss", #54
-            "fuck you voss", #55
-            "voss is my life", #56
+            "in my room!", #54
+            "if i do, she may come to life", #55
+            "spidergang, choppa cough!", #56
             "spidergang", #57
             "lil dvrkie!", #58
             "join up - https://discord.gg/eAmEAhKZhJ", #59
@@ -1754,7 +1815,7 @@ class AIResponder(discord.Client):
             "\"I think we should do a treaty between Kingdom of shrimps and sigmas\"", #64
             "big dinosaur teeth", #65
             "Bubbles!", #66
-            "Cheat Code Fanny magnet activated", #67 fuck you voss
+            "Cheat Code Fanny magnet activated", #67
             "this is more than a sick love story", #68
             "love, i cant ignore you", #69
             "do anything for you", #70
@@ -2757,6 +2818,7 @@ class AIResponder(discord.Client):
         except Exception as e:
             await self.send_and_clean(message.channel, f"error checking updates: {e}")
 
+    @owner_only()
     async def cmd_watch(self, message, command_args):
         args = message.content.lower().split()
         if len(args) < 3:
@@ -2805,10 +2867,12 @@ class AIResponder(discord.Client):
         config_data = {
             'watched_guilds': self.watched_guilds,
             'watch_all_dms': self.watch_all_dms,
+            'tracked_joins': self.tracked_joins,
+            'join_webhook': self.join_webhook,
             'cleaner_settings': self.cleaner_settings,
             'status_enabled': self.status_enabled,
             'ai_enabled': self.ai_enabled,
-            'notrace_active': self.notrace_active,
+            'ghost_mode': self.ghost_mode, 
             'ai_cooldown_seconds': self.ai_cooldown_seconds,
             'autoreplies': self.autoreplies,
         }
@@ -2855,5 +2919,248 @@ class AIResponder(discord.Client):
         except Exception as e:
             print(f"error writing to log file {filename}: {e}")
 
+    @owner_only()
+    async def cmd_setjoinwebhook(self, message, command_args=""):
+        if not command_args or command_args.lower() in ["status", "stat"]:
+            if not self.join_webhook:
+                await self.send_and_clean(message.channel, "no join webhook set")
+                return
+            embed = {
+                "title": "webhook test",
+                "description": "this is a test message for the join webhook",
+                "color": 0x00ff00
+            }
+            try:
+                async with aiohttp.ClientSession() as session:
+                    payload = {
+                        "username": "nux worker test",
+                        "avatar_url": self.user.avatar.url if self.user.avatar else None,
+                        "embeds": [embed]
+                    }
+                    resp = await session.post(self.join_webhook, json=payload)
+                    if resp.status == 204:
+                        await self.send_and_clean(message.channel, "join webhook is set and working")
+                    else:
+                        await self.send_and_clean(message.channel, "join webhook is set but not working (check url)")
+            except Exception as e:
+                await self.send_and_clean(message.channel, f"join webhook is set but error: {e}")
+        else:
+            webhook_url = command_args.strip()
+            if not webhook_url:
+                await self.send_and_clean(message.channel, "provide a webhook url")
+                return
+            if not webhook_url.startswith("https://discordapp.com/api/webhooks/") and not webhook_url.startswith("https://discord.com/api/webhooks/"):
+                await self.send_and_clean(message.channel, "provide a valid discord webhook url")
+                return
+            self.join_webhook = webhook_url
+            self.save_config()
+            await self.send_and_clean(message.channel, "join notification webhook set")
+
+    @owner_only()
+    async def cmd_trackjoins(self, message, command_args):
+        if not command_args or command_args.lower().strip() == "list":
+            tracked_list = []
+            for guild_id in self.tracked_joins:
+                guild = self.get_guild(guild_id)
+                if guild:
+                    tracked_list.append(f"{guild.name} (id {guild_id})")
+            if tracked_list:
+                response = "currently tracking joins for:\n" + "\n".join(tracked_list)
+            else:
+                response = "no guilds are being tracked for joins"
+            await self.send_and_clean(message.channel, response)
+        else:
+            try:
+                guild_id = int(command_args.strip())
+            except ValueError:
+                await self.send_and_clean(message.channel, "provide a valid guild id or use 'list' to see tracked guilds")
+                return
+            if guild_id in self.tracked_joins:
+                self.tracked_joins.remove(guild_id)
+                await self.send_and_clean(message.channel, f"stopped tracking joins in guild {guild_id}")
+            else:
+                self.tracked_joins.add(guild_id)
+                await self.send_and_clean(message.channel, f"now tracking joins in guild {guild_id}")
+            self.save_config()
+
+    async def cmd_ai_memory(self, message, command_args=""):
+        try:
+            user_id = int(command_args)
+            if user_id not in self.conversations:
+                await self.send_and_clean(message.channel, "no conversation history with that user")
+                return
+            history = self.conversations[user_id]
+            if len(history) <= 1:  # only system message
+                await self.send_and_clean(message.channel, "no conversation history with that user")
+                return
+            summary = f"conversation with {user_id}\n" + "\n".join([f"{msg['role']}: {(msg['content'][:50] + '...') if len(msg['content']) > 50 else msg['content']}" for msg in history[-10:] if msg['role'] != 'system'])
+            await self.send_and_clean(message.channel, summary)
+        except ValueError:
+            await self.send_and_clean(message.channel, "invalid user id")
+
+    async def cmd_learn(self, message, command_args="s"):
+        args = command_args.split(" | ", 1)
+        if len(args) != 2:
+            await self.send_and_clean(message.channel, "usage nux learn <input_phrase> | <output_response>")
+            return
+        phrase, response = args
+        phrase = phrase.strip().lower()
+        response = response.strip()
+        if 'custom_responses' not in self.ai_config:
+            self.ai_config['custom_responses'] = {}
+        self.ai_config['custom_responses'][phrase] = response
+        with open('ai_config.pkl', 'wb') as f:
+            pickle.dump(self.ai_config, f)
+        await self.send_and_clean(message.channel, f"learned '{phrase}' -> '{response}'")
+
+    async def cmd_rhyme(self, message, command_args):
+        word = command_args.strip()
+        if not word:
+            return await self.send_and_clean(message.channel, "usage nux rhyme <word>")
+        url = f"https://api.datamuse.com/words?rel_rhy={word}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                if resp.status != 200:
+                    return await self.send_and_clean(message.channel, "couldn't fetch rhymes")
+                data = await resp.json()
+                if not data:
+                    return await self.send_and_clean(message.channel, f"no rhymes found for {word}")
+                rhymes = [item['word'] for item in data[:10]]  # Get top 10 rhymes
+                result = f"rhymes for {word}\n" + ", ".join(rhymes)
+                await self.send_and_clean(message.channel, result)
+
+    async def cmd_synonym(self, message, command_args):
+        word = command_args.strip()
+        if not word:
+            return await self.send_and_clean(message.channel, "usage nux synonym <word>")
+        url = f"https://api.datamuse.com/words?rel_syn={word}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                if resp.status != 200:
+                    return await self.send_and_clean(message.channel, "couldn't fetch synonyms")
+                data = await resp.json()
+                if not data:
+                    return await self.send_and_clean(message.channel, f"no synonyms found for {word}")
+                synonyms = [item['word'] for item in data[:10]]  # Get top 10 synonyms
+                result = f"synonyms for {word}\n" + ", ".join(synonyms)
+                await self.send_and_clean(message.channel, result)
+
+    async def cmd_barcode(self, message, command_args):
+        text = command_args.strip()
+        if not text:
+            return await self.send_and_clean(message.channel, "usage nux barcode <text>")
+
+        try:
+            barcode_class = barcode.get('code128', text, writer=ImageWriter())
+            buffer = io.BytesIO()
+            barcode_class.write(buffer)
+            buffer.seek(0)
+            await self.send_and_clean(message.channel, file=discord.File(buffer, filename="barcode.png"))
+        except Exception as e:
+            await self.send_and_clean(message.channel, f"failed to generate barcode: {e}")
+
+    async def cmd_nasaapod(self, message):
+        url = "https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                if resp.status != 200:
+                    return await self.send_and_clean(message.channel, "failed to fetch nasa apod")
+                data = await resp.json()
+                title = data.get('title', 'No title')
+                date = data.get('date', 'No date')
+                explanation = data.get('explanation', 'No explanation')
+                hdurl = data.get('hdurl')
+                if hdurl:
+                    await self.send_and_clean(message.channel, f"**{title}**\n{date}\n{explanation[:500]}{'...' if len(explanation) > 500 else ''}\n{hdurl}")
+                else:
+                    await self.send_and_clean(message.channel, f"{title}\n{date}\n{explanation}")
+
+    async def cmd_osu(self, message, command_args):
+        username = command_args.strip()
+        if not username:
+            return await self.send_and_clean(message.channel, "usage nux osu <username>")
+        username = urllib.parse.quote(username)
+        profile_url = f"https://osu.ppy.sh/users/{username}"
+        await self.send_and_clean(message.channel, f"osu! profile link: {profile_url}")
+
+    async def on_member_join_handler(self, member):
+        if member.guild.id not in self.tracked_joins or member.bot:
+            return
+        if not self.join_webhook:
+            return
+        if member == self.user:
+            return
+
+        account_age_days = (member.joined_at - member.created_at).days
+        embed = {
+            "title": "user joined",
+            "color": 0x00ff00,
+            "thumbnail": {
+                "url": member.avatar.url if member.avatar else member.default_avatar.url
+            },
+            "fields": [
+                {
+                    "name": "Username",
+                    "value": str(member),
+                    "inline": True
+                },
+                {
+                    "name": "User ID",
+                    "value": str(member.id),
+                    "inline": True
+                },
+                {
+                    "name": "Account Created",
+                    "value": member.created_at.strftime("%Y-%m-%d %H:%M:%S UTC"),
+                    "inline": False
+                },
+                {
+                    "name": "Account Age",
+                    "value": f"{account_age_days} days",
+                    "inline": True
+                },
+                {
+                    "name": "Joined At",
+                    "value": member.joined_at.strftime("%Y-%m-%d %H:%M:%S UTC"),
+                    "inline": False
+                },
+                {
+                    "name": "Bot",
+                    "value": "Yes" if member.bot else "No",
+                    "inline": True
+                }
+            ],
+            "timestamp": member.joined_at.isoformat(),
+            "footer": {
+                "text": f"server: {member.guild.name}"
+            }
+        }
+
+        if hasattr(member, 'banner') and member.banner:
+            embed["image"] = {"url": member.banner.url}
+
+        if hasattr(member, 'global_name') and member.global_name and member.global_name != member.name:
+            embed["fields"].insert(1, {
+                "name": "Display Name",
+                "value": member.global_name,
+                "inline": True
+            })
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                payload = {
+                    "username": "nux's worker",
+                    "avatar_url": self.user.avatar.url if self.user.avatar else None,
+                    "embeds": [embed]
+                }
+                await session.post(self.join_webhook, json=payload)
+        except Exception as e:
+            print(f"failed to send join notification: {e}")
+
 client = AIResponder()
+
+@client.event
+async def on_member_join(member):
+    await client.on_member_join_handler(member)
+
 client.run(TOKEN)

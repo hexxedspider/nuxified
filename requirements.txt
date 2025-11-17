@@ -13,6 +13,7 @@ scipy
 numpy
 soundfile
 Pillow
+python-barcode
 python-dotenv
 psutil
 googletrans
