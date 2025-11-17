@@ -1,5 +1,6 @@
 **/downloads
 **/env
+**/314
 .env
 
 ai_config.pkl
@@ -8,8 +9,3 @@ config.pkl
 **/logs
 **/__pycache__
 **/other_accounts
-
-femboy.py
-lovebound.py
-slammedbeamer.py
-suicidemane.py

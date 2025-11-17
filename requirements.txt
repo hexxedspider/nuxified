@@ -1,4 +1,4 @@
-discord.py-self==2.0.1
+discord.py-self
 protobuf==3.20.3
 asyncio
 aiohttp

@@ -23,6 +23,7 @@ logging.getLogger('discord.http').setLevel(logging.WARNING)
 logging.getLogger('discord.client').setLevel(logging.WARNING)
 
 XGD_API_KEY = "25ff18ddf60a188f5f2b412db909b8f9"
+STEAM_API_BASE = "https://api.steampowered.com"
 
 zalgo_up = [chr(i) for i in range(0x0300, 0x036F)]
 flip_map = str.maketrans(
@@ -32,7 +33,9 @@ flip_map = str.maketrans(
 load_dotenv()
 ALLOWED_USER_IDS = set(int(x) for x in os.getenv('allowed', '').split(',') if x.strip())
 TOKEN = os.getenv('nuxified')
-VERSION = "2.0.1"
+STEAM_API_KEY = os.getenv('STEAM_API_KEY')
+
+VERSION = "2.1.0"
 
 nsfw_categories = {
 "ass": ["Ass", "SexyAss", "pawgtastic", "bigasses", "assgirls", "BigAss", "booty_queens", "hugeasses", "AssPillow", "OiledAss"],
@@ -60,7 +63,7 @@ MORSE_CODE_DICT = {
 
 MORSE_CODE_REVERSE = {v: k for k, v in MORSE_CODE_DICT.items()}
 
-FIXED_AI_PART = "\n\nthis ai is operating as a discord selfbot created by nuxified (nux) it must always adhere to discord's terms of service and guidelines for bots, even though it's a selfbot responses should be short (1-2 sentences unless asked otherwise), and only ever in lowercase with no emojis and minimal punctuation. if the username contains characters like _underscores_ like that, put a backwards slash (like this, \_underscore_) to avoid discord formatting."
+FIXED_AI_PART = "\n\nthis ai is operating as a discord selfbot created by nuxified (nux) it must always adhere to discord's terms of service and guidelines for bots, even though it's a selfbot responses should be short (1-2 sentences unless asked otherwise), and only ever in lowercase with no emojis and minimal punctuation. if the username contains characters like _underscores_ like that, put a backwards slash (like this, \\_underscore_) to avoid discord formatting."
 
 class AIResponder(discord.Client):
     def __init__(self):
@@ -76,7 +79,7 @@ class AIResponder(discord.Client):
         self.saved_status = None
         self.saved_status_enabled = False
         self.last_ai = False
-        self.owner_id = 1136337246631497849
+        self.owner_id = None
         self.reset_last_ai = None
         self.watched_guilds = set()
         self.watch_all_dms = False # nux watch cmd, very useful teehee
@@ -166,7 +169,8 @@ class AIResponder(discord.Client):
                 "nux synonym <word>": "find synonyms for the given word",
                 "nux barcode <text>": "generate a barcode for the given text",
                 "nux nasaapod": "fetch NASA's Astronomy Picture of the Day",
-                "nux osu <username>": "get a link to osu! user profile"
+                "nux steamprofile <steamid/vanity>": "generate steam profile card image with info",
+                "nux osu": "get a link to osu! user profile"
             },
             "utilities": {
                 "nux id": "show your user id and info",
@@ -189,8 +193,8 @@ class AIResponder(discord.Client):
                 "nux avatar <@user>": "shows a user's avatar in full size",
                 "nux banner <@user>": "shows a user's banner if they have one",
                 "nux stats": "shows bot statistics and system information",
-    "nux bug": "report a bug to the developer",
-    "nux update": "check for script updates on GitHub",
+                "nux bug": "report a bug to the developer",
+                "nux update": "check for script updates on GitHub",
                 "nux joinwh <url>": "set webhook url for join notifications",
                 "nux trackjoins <guild_id | list>": "toggle or list join tracking for guilds",
                 "nux watch <guild_id | dm | list>": "toggle message logging for a server or all dms, or list watched servers",
@@ -342,6 +346,7 @@ class AIResponder(discord.Client):
         "nux synonym": self.cmd_synonym,
         "nux barcode": self.cmd_barcode,
         "nux nasaapod": self.cmd_nasaapod,
+        "nux steamprofile": self.cmd_steamprofile,
         "nux osu": self.cmd_osu,
 }
 
@@ -393,6 +398,7 @@ class AIResponder(discord.Client):
 
     async def on_ready(self):
         self.start_time = datetime.datetime.utcnow()
+        self.owner_id = self.user.id 
         # this is how i use to have my status cycle, but that new command does it for me
         # self.status_task = self.loop.create_task(self.change_status_periodically())
         print(f"{self.user}")
@@ -1572,7 +1578,7 @@ class AIResponder(discord.Client):
 
     @owner_only()
     async def cmd_ghost(self, message, command_args=""):
-        if not self.ghost_mode: # Activating ghost mode
+        if not self.ghost_mode:
             self.saved_activity = getattr(self.user, 'activity', None)
             self.saved_status = getattr(self.user, 'status', discord.Status.online)
             self.saved_status_enabled = self.status_enabled
@@ -1580,21 +1586,21 @@ class AIResponder(discord.Client):
             if self.status_task:
                 self.status_task.cancel()
                 self.status_task = None
-            self.status_enabled = False # Ensure status messages are off in ghost mode
+            self.status_enabled = False 
 
             await self.change_presence(activity=None, status=discord.Status.offline)
             self.ghost_mode = True
             status_message = "active, profile is offline and messages delete after 15 seconds."
-        else: # Deactivating ghost mode
+        else: 
             self.ghost_mode = False
-            self.status_enabled = self.saved_status_enabled # Restore previous status_enabled state
+            self.status_enabled = self.saved_status_enabled 
 
             if self.status_enabled:
                 await self.change_presence(activity=self.saved_activity, status=self.saved_status)
                 if not self.status_task or self.status_task.done():
                     self.status_task = self.loop.create_task(self.change_status_periodically())
             else:
-                await self.change_presence(activity=None, status=discord.Status.online) # Default to online if status messages were off
+                await self.change_presence(activity=None, status=discord.Status.online)
 
             status_message = "inactive, profile is online and messages will not delete."
 
@@ -1608,7 +1614,7 @@ class AIResponder(discord.Client):
         await asyncio.sleep(0.5)
         await msg.delete()
 
-    async def cmd_font(self, message, command_args):
+    async def cmd_font(self, message, command_args=""):
         args = command_args.split()
         if len(args) < 1:
             await self.send_and_clean(message.channel, "usage nux font... *breath...* <arathos|berosong|betterfields|brunoblack|hanah|krondos|maskneyes|maytorm|onerock|rockaura|roomach|spider|thunder> <text>")
@@ -2990,7 +2996,7 @@ class AIResponder(discord.Client):
                 await self.send_and_clean(message.channel, "no conversation history with that user")
                 return
             history = self.conversations[user_id]
-            if len(history) <= 1:  # only system message
+            if len(history) <= 1:
                 await self.send_and_clean(message.channel, "no conversation history with that user")
                 return
             summary = f"conversation with {user_id}\n" + "\n".join([f"{msg['role']}: {(msg['content'][:50] + '...') if len(msg['content']) > 50 else msg['content']}" for msg in history[-10:] if msg['role'] != 'system'])
@@ -3025,7 +3031,7 @@ class AIResponder(discord.Client):
                 data = await resp.json()
                 if not data:
                     return await self.send_and_clean(message.channel, f"no rhymes found for {word}")
-                rhymes = [item['word'] for item in data[:10]]  # Get top 10 rhymes
+                rhymes = [item['word'] for item in data[:10]]
                 result = f"rhymes for {word}\n" + ", ".join(rhymes)
                 await self.send_and_clean(message.channel, result)
 
@@ -3041,7 +3047,7 @@ class AIResponder(discord.Client):
                 data = await resp.json()
                 if not data:
                     return await self.send_and_clean(message.channel, f"no synonyms found for {word}")
-                synonyms = [item['word'] for item in data[:10]]  # Get top 10 synonyms
+                synonyms = [item['word'] for item in data[:10]]
                 result = f"synonyms for {word}\n" + ", ".join(synonyms)
                 await self.send_and_clean(message.channel, result)
 
@@ -3082,6 +3088,190 @@ class AIResponder(discord.Client):
         username = urllib.parse.quote(username)
         profile_url = f"https://osu.ppy.sh/users/{username}"
         await self.send_and_clean(message.channel, f"osu! profile link: {profile_url}")
+
+    async def cmd_steamprofile(self, message, command_args):
+        steamid = command_args.strip()
+        if not steamid:
+            return await self.send_and_clean(message.channel, "usage nux steamprofile <steamid64 or vanity url slug>")
+
+        if not STEAM_API_KEY:
+            return await self.send_and_clean(message.channel, "steam api key not set")
+
+        loop = asyncio.get_event_loop()
+        try:
+            resolved_steamid = await loop.run_in_executor(None, self.resolve_steamid, steamid)
+            if not resolved_steamid:
+                return await self.send_and_clean(message.channel, "could not resolve steamid")
+
+            profile = await loop.run_in_executor(None, self.get_player_summary, resolved_steamid)
+            bans = await loop.run_in_executor(None, self.get_player_bans, resolved_steamid)
+            friend_count = await loop.run_in_executor(None, self.get_friend_count, resolved_steamid)
+
+            if not profile:
+                return await self.send_and_clean(message.channel, "failed to fetch profile")
+
+            buffer = await loop.run_in_executor(None, self.create_steam_profile_card, profile, bans, friend_count)
+            await self.send_and_clean(message.channel, file=discord.File(buffer, filename="steam_profile.png"))
+        except Exception as e:
+            await self.send_and_clean(message.channel, f"error: {e}")
+
+    def resolve_steamid(self, identifier):
+        if identifier.isdigit() and len(identifier) >= 17:
+            return identifier
+        url = f"{STEAM_API_BASE}/ISteamUser/ResolveVanityURL/v1/"
+        params = {"key": STEAM_API_KEY, "vanityurl": identifier}
+        r = requests.get(url, params=params)
+        if r.status_code != 200:
+            return None
+        try:
+            data = r.json()
+        except ValueError:
+            return None
+        return data.get("response", {}).get("steamid")
+
+    def get_player_summary(self, steamid):
+        url = f"{STEAM_API_BASE}/ISteamUser/GetPlayerSummaries/v2/"
+        params = {"key": STEAM_API_KEY, "steamids": steamid}
+        r = requests.get(url, params=params)
+        if r.status_code != 200:
+            return None
+        try:
+            data = r.json()
+        except ValueError:
+            return None
+        players = data.get("response", {}).get("players", [])
+        return players[0] if players else None
+
+    def get_player_bans(self, steamid):
+        url = f"{STEAM_API_BASE}/ISteamUser/GetPlayerBans/v1/"
+        params = {"key": STEAM_API_KEY, "steamids": steamid}
+        r = requests.get(url, params=params)
+        if r.status_code != 200:
+            return {}
+        try:
+            data = r.json()
+        except ValueError:
+            return {}
+        bans = data.get("players", [])
+        return bans[0] if bans else {}
+
+    def get_friend_count(self, steamid):
+        url = f"{STEAM_API_BASE}/ISteamUser/GetFriendList/v1/"
+        params = {"key": STEAM_API_KEY, "steamid": steamid, "relationship": "friend"}
+        r = requests.get(url, params=params)
+        if r.status_code != 200:
+            return 0
+        try:
+            data = r.json()
+        except ValueError:
+            return 0
+        return len(data.get("friendslist", {}).get("friends", []))
+
+    def format_timestamp(self, ts):
+        return datetime.datetime.utcfromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S') if ts else "N/A"
+
+    def draw_wrapped_text(self, draw, text, position, font, max_width, fill):
+        words = text.split()
+        lines, line = [], ""
+        while words:
+            test_line = line + (words[0] + " ")
+            if draw.textlength(test_line, font=font) <= max_width:
+                line = test_line
+                words.pop(0)
+            else:
+                lines.append(line)
+                line = ""
+        if line:
+            lines.append(line)
+
+        x, y = position
+        for l in lines:
+            draw.text((x, y), l.strip(), font=font, fill=fill)
+            y += font.size + 2
+        return y
+
+    def create_steam_profile_card(self, profile, bans, friend_count):
+        avatar_url = profile.get("avatarfull")
+        avatar_response = requests.get(avatar_url)
+        avatar_img = Image.open(io.BytesIO(avatar_response.content)).convert("RGBA")
+
+        try:
+            font_title = ImageFont.truetype("dmfonts/thunder.otf", 32)
+            font_text = ImageFont.truetype("dmfonts/hanah.ttf", 20)
+        except:
+            font_title = ImageFont.load_default()
+            font_text = ImageFont.load_default()
+
+        card_width, card_height = 1600, 800
+        card = Image.new("RGBA", (card_width, card_height))
+        draw = ImageDraw.Draw(card)
+
+        for y in range(card_height):
+            r = min(255, int(100 + y * 0.2))
+            g = min(255, int(50 + y * 0.1))
+            b = min(255, int(150 + y * 0.05))
+            draw.line([(0, y), (card_width, y)], fill=(r, g, b))
+
+        avatar_size = 180
+        avatar_img = avatar_img.resize((avatar_size, avatar_size))
+        avatar_border_size = 10
+        avatar_pos = (30 + avatar_border_size, 35 + avatar_border_size)
+        draw.rectangle([30, 35, 30 + avatar_size + 2*avatar_border_size, 35 + avatar_size + 2*avatar_border_size], fill=(255, 255, 255))
+        card.paste(avatar_img, avatar_pos)
+
+        x_start = 270
+        y_offset = 50
+        max_text_width = card_width - x_start - 40
+
+        draw.text((x_start, y_offset), profile.get("personaname", "Unknown"), font=font_title, fill=(255, 255, 255))
+        y_offset += 60
+
+        draw.text((x_start, y_offset), f"SteamID: {profile.get('steamid')}", font=font_text, fill=(200, 200, 200))
+        y_offset += 35
+
+        y_offset = self.draw_wrapped_text(draw, f"Profile: {profile.get('profileurl')}", (x_start, y_offset), font_text, max_text_width, (200,200,200)) + 15
+
+        status_map = {
+            0: "Offline",
+            1: "Online",
+            2: "Busy",
+            3: "Away",
+            4: "Snooze",
+            5: "Looking to Trade",
+            6: "Looking to Play"
+        }
+        status = status_map.get(profile.get("personastate", 0), "Unknown")
+        draw.text((x_start, y_offset), f"Status: {status}", font=font_text, fill=(150, 255, 150))
+        y_offset += 35
+
+        real_name = profile.get("realname", "N/A")
+        country = profile.get("loccountrycode", "N/A")
+        last_online = self.format_timestamp(profile.get("lastlogoff"))
+        created = self.format_timestamp(profile.get("timecreated"))
+        game = profile.get("gameextrainfo", None)
+
+        draw.text((x_start, y_offset), f"Real Name: {real_name}", font=font_text, fill=(200,200,200)); y_offset += 30
+        draw.text((x_start, y_offset), f"Country: {country}", font=font_text, fill=(200,200,200)); y_offset += 30
+        draw.text((x_start, y_offset), f"Last Online: {last_online}", font=font_text, fill=(200,200,200)); y_offset += 30
+        draw.text((x_start, y_offset), f"Created: {created}", font=font_text, fill=(200,200,200)); y_offset += 30
+
+        if game:
+            draw.text((x_start, y_offset), f"Currently Playing: {game}", font=font_text, fill=(150,200,255)); y_offset += 40
+
+        draw.text((x_start, y_offset), f"Friends: {friend_count}", font=font_text, fill=(200,200,200)); y_offset += 30
+        if bans:
+            draw.text((x_start, y_offset), f"VAC Bans: {bans.get('NumberOfVACBans', 0)}", font=font_text, fill=(255,150,150)); y_offset += 30
+            draw.text((x_start, y_offset), f"Game Bans: {bans.get('NumberOfGameBans', 0)}", font=font_text, fill=(255,150,150)); y_offset += 30
+            draw.text((x_start, y_offset), f"Community Banned: {bans.get('CommunityBanned', False)}", font=font_text, fill=(255,150,150)); y_offset += 30
+
+        used_height = y_offset + 50
+        used_width = max(max_text_width + x_start + 40, 1400)
+        card = card.crop((0, 0, used_width, used_height))
+
+        buffer = io.BytesIO()
+        card.save(buffer, format="PNG")
+        buffer.seek(0)
+        return buffer
 
     async def on_member_join_handler(self, member):
         if member.guild.id not in self.tracked_joins or member.bot:
