@@ -32,7 +32,7 @@ flip_map = str.maketrans(
 load_dotenv()
 ALLOWED_USER_IDS = set(int(x) for x in os.getenv('allowed', '').split(',') if x.strip())
 TOKEN = os.getenv('nuxified')
-VERSION = "1.0.2"
+VERSION = "2.0.1"
 
 nsfw_categories = {
 "ass": ["Ass", "SexyAss", "pawgtastic", "bigasses", "assgirls", "BigAss", "booty_queens", "hugeasses", "AssPillow", "OiledAss"],
