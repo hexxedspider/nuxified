@@ -35,7 +35,7 @@ ALLOWED_USER_IDS = set(int(x) for x in os.getenv('allowed', '').split(',') if x.
 TOKEN = os.getenv('nuxified')
 STEAM_API_KEY = os.getenv('STEAM_API_KEY')
 
-VERSION = "2.1.1"
+VERSION = "2.2.0"
 
 nsfw_categories = {
 "ass": ["Ass", "SexyAss", "pawgtastic", "bigasses", "assgirls", "BigAss", "booty_queens", "hugeasses", "AssPillow", "OiledAss"],
