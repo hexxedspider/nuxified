@@ -19,3 +19,4 @@ psutil
 googletrans
 alexflipnote.py
 watchdog
+audioop-lts

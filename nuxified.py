@@ -153,7 +153,7 @@ class AIResponder(discord.Client):
                 "nux didyoumean <search> - <dym>": "make a google result image that has the <search> text in the text bar, and <dym> being the blue text that would correct you",
                 "nux facts <text>": "make an image with the fact book from ed, edd n eddy using your text",
                 "nux scroll <text>": "make an image with the scroll meme format",
-                "nux freq <freq hz> <waveform>": "sends back an audio file with the requested hz and waveform useful for clean frequencies",
+                "nux freq <freq hz> <waveform>": "sends back an audio file with the requested hz and waveform, useful for clean frequencies",
                 "nux font <fontname> <text>": "renders text using a specific font from dmfonts"
             },
             "fun": {
@@ -211,13 +211,13 @@ class AIResponder(discord.Client):
         }
         self.nsfwhelp_categories = {
             "neko.life": {
-        "nux hentai": "drawn nsfw",
-        "nux thighs": "the best thing to ever exist",
-        "nux ass": "the 1stnd best thing to ever exist",
-        "nux boobs": "what do you think",
-        "nux pussy": "do i need to explain",
-        "nux pgif": "porn gif, pgif, yk?",
-        "nux neko": "cat-girl related",
+                "nux hentai": "drawn nsfw",
+                "nux thighs": "the best thing to ever exist",
+                "nux ass": "the 1stnd best thing to ever exist",
+                "nux boobs": "what do you think",
+                "nux pussy": "do i need to explain",
+                "nux pgif": "porn gif, pgif, yk?",
+                "nux neko": "cat-girl related",
             },
             "reddit based": {
                 "nux nsfw <ass>": "idk what to write for this one i started at the bottom of this list and worked my way up",
@@ -348,6 +348,7 @@ class AIResponder(discord.Client):
         "nux nasaapod": self.cmd_nasaapod,
         "nux steamprofile": self.cmd_steamprofile,
         "nux osu": self.cmd_osu,
+        "nux pull": self.cmd_pull
 }
 
     def build_help_message(self):
@@ -1220,10 +1221,11 @@ class AIResponder(discord.Client):
             "- `nux restart`  restarts nuxified - is slightly buggy and results in two of me running at once\n"
             "- `nux simulate <@person> <command>` uses a command as the person mentioned\n"
             "- `nux backup` saves my friends list and servers/guilds i'm to a file for me\n"
+            "- `nux pull` pulls the latest changes from GitHub using git pull\n"
             "- `nux ai setup` sets up the ai personality for openrouter (dm only)\n"
-            "[⠀](https://cdn.discordapp.com/attachments/1136379503116025939/1387306227842945106/image.png?ex=685cdd1b&is=685b8b9b&hm=25ee59d3d9c686073400a51a4f70fb45e9d036ce9e32293cf9afce57081fac15&)\n\n"
-            "**how**\n"
-            "using a @owner_only() decorator, that pulls my own id and uses it to make it so if the command has that decorator, only i can use it, and this is what it looks like in use\n-- you can try to use the command, but obviously nothing will happen --[⠀](https://cdn.discordapp.com/attachments/1136379503116025939/1387305398964326440/image.png?ex=685cdc56&is=685b8ad6&hm=c66308c3bc829df58dd0706ec264569a2aeffc4c58d5d1ea321b2ba57e4ea44f&)"
+                "[⠀](https://cdn.discordapp.com/attachments/1136379503116025939/1387306227842945106/image.png?ex=685cdd1b&is=685b8b9b&hm=25ee59d3d9c686073400a51a4f70fb45e9d036ce9e32293cf9afce57081fac15&)\n\n"
+                "**how**\n"
+                "using a @owner_only() decorator, that pulls my own id and uses it to make it so if the command has that decorator, only i can use it, and this is what it looks like in use\n-- you can try to use the command, but obviously nothing will happen --[⠀](https://cdn.discordapp.com/attachments/1136379503116025939/1387305398964326440/image.png?ex=685cdc56&is=685b8ad6&hm=c66308c3bc829df58dd0706ec264569a2aeffc4c58d5d1ea321b2ba57e4ea44f&)"
         )
         await self.send_and_clean(message.channel, help_text)
 
@@ -1534,7 +1536,7 @@ class AIResponder(discord.Client):
         await self.send_and_clean(message.channel, f"nux base64 decode dW5kZWFkIFsyXQ==.")
 
     @owner_only()
-    async def cmd_cleaner(self, message, command_args):
+    async def cmd_cleaner(self, message, command_args=""):
         args = command_args.split()
         await message.delete()
         if not args:
@@ -2823,6 +2825,17 @@ class AIResponder(discord.Client):
                         await self.send_and_clean(message.channel, "failed to check for updates")
         except Exception as e:
             await self.send_and_clean(message.channel, f"error checking updates: {e}")
+
+    @owner_only()
+    async def cmd_pull(self, message, command_args=""):
+        try:
+            result = subprocess.run(['git', 'pull', 'origin', 'main'], capture_output=True, text=True, cwd=os.getcwd())
+            if result.returncode == 0:
+                await self.send_and_clean(message.channel, f"git pull successful\n{result.stdout}")
+            else:
+                await self.send_and_clean(message.channel, f"git pull failed\n{result.stderr}")
+        except Exception as e:
+            await self.send_and_clean(message.channel, f"error running git pull: {e}")
 
     @owner_only()
     async def cmd_watch(self, message, command_args):
