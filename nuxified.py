@@ -3,7 +3,7 @@
 # the folder (excluded, .gitignore) other_accounts is just this script but pasted with other names and what not, branded to those accounts.
 # it's in a seperate folder since they don't really matter to me, hence why i don't keep them updated, and dont bother trying to update them... not that you'd know anyway.
 
-import discord, asyncio, random, aiohttp, datetime, io, qrcode, requests, base64, math, yt_dlp, os, logging, re, psutil, platform, subprocess, sys, json, hashlib, urllib.parse
+import discord, asyncio, random, aiohttp, datetime, io, qrcode, requests, base64, math, yt_dlp, os, logging, re, psutil, platform, subprocess, sys, json, hashlib, urllib.parse, uuid
 from gtts import gTTS
 from redgifs import API as RedGifsAPI
 from pyfiglet import figlet_format
@@ -31,7 +31,7 @@ flip_map = str.maketrans(
 load_dotenv()
 ALLOWED_USER_IDS = set(int(x) for x in os.getenv('allowed', '').split(',') if x.strip())
 TOKEN = os.getenv('nuxified')
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 
 nsfw_categories = {
 "ass": ["Ass", "SexyAss", "pawgtastic", "bigasses", "assgirls", "BigAss", "booty_queens", "hugeasses", "AssPillow", "OiledAss"],
@@ -125,7 +125,9 @@ class AIResponder(discord.Client):
                 "nux piglatin <encode|decode> <text>": "converts text into piglatin",
                 "nux hash <algorithm> <text>": "hashes text using md5, sha1, sha256, or sha512",
                 "nux wordcount <text>": "counts words in the provided text",
-                "nux charfreq <text>": "displays the frequency of each character in the text"
+                "nux charfreq <text>": "displays the frequency of each character in the text",
+                "nux anagram <text>": "rearranges letters to create an anagram",
+                "nux uuid": "generates a unique identifier"
             },
             "media": {
                 "nux qr <text/url>": "generate a qr code",
@@ -308,6 +310,8 @@ class AIResponder(discord.Client):
         "nux dlmedia": self.cmd_dlmedia,
         "nux echo": self.cmd_echo,
         "nux ai preset": self.cmd_ai_preset,
+        "nux anagram": self.cmd_anagram,
+        "nux uuid": self.cmd_uuid,
 }
 
     def build_help_message(self):
@@ -392,7 +396,7 @@ class AIResponder(discord.Client):
 
         if matched_command_key:
             command_func = self.commands[matched_command_key]
-            if not command_args:  # exact match
+            if not command_args:
                 await command_func(message)
             else:
                 await command_func(message, command_args)
@@ -583,7 +587,6 @@ class AIResponder(discord.Client):
         if not text:
             await self.send_and_clean(message.channel, "please provide the text to encode")
             return
-        # Split by spaces but keep track of them
         words = text.lower().split(' ')
         encoded_words = []
         for word in words:
@@ -591,7 +594,7 @@ class AIResponder(discord.Client):
             for char in word:
                 morse = MORSE_CODE_DICT.get(char, '?')
                 encoded_chars.append(morse)
-            if encoded_chars:  # Only add non-empty words
+            if encoded_chars:
                 encoded_words.append(" ".join(encoded_chars))
         result = " / ".join(encoded_words)
         await self.send_and_clean(message.channel, f"```{result}```")
@@ -1756,7 +1759,7 @@ class AIResponder(discord.Client):
             "love, i cant ignore you", #69
             "do anything for you", #70
             "spotify.com/playlist/7t0InrUUJIlkExhF6b2r4B?si=03052a278395491f", #71
-            "as of nov 15th my status changes every 30 seconds"
+            "as of nov 15th my status changes every 30 seconds" #72
         ]
         while True:
             new_status = self.rand.choice(status_messages)
@@ -2095,7 +2098,6 @@ class AIResponder(discord.Client):
         personality = self.ai_config.get('personality', FIXED_AI_PART)
         if user_id not in self.conversations:
             self.conversations[user_id] = [{"role": "system", "content": personality}]
-        # Add username to the prompt so the AI can use it if it wants
         user_message = f"From {username}: {user_input}"
         self.conversations[user_id].append({"role": "user", "content": user_message})
         self.conversations[user_id] = self.conversations[user_id][-30:]
@@ -2162,7 +2164,7 @@ class AIResponder(discord.Client):
                     return word + "ay"
             
             result = ' '.join([piglatinify(word) for word in text.split()])
-        else:  # decode
+        else:
             def unpiglatinify(word):
                 if word.endswith("yay"):
                     return word[:-3]
@@ -2577,6 +2579,23 @@ class AIResponder(discord.Client):
         await self.send_and_clean(message.channel, f"ai personality set to preset '{preset_name}'")
         await self.send_and_clean(message.channel, "you can now turn on ai with `nux ai on`")
 
+    async def cmd_anagram(self, message, command_args):
+        text = command_args.strip()
+        if not text:
+            return await self.send_and_clean(message.channel, "usage nux anagram <text>")
+        words = text.split()
+        anagram_words = []
+        for word in words:
+            char_list = list(word)
+            self.rand.shuffle(char_list)
+            anagram_words.append(''.join(char_list))
+        result = ' '.join(anagram_words)
+        await self.send_and_clean(message.channel, result)
+
+    async def cmd_uuid(self, message):
+        generated_uuid = str(uuid.uuid4())
+        await self.send_and_clean(message.channel, f"generated uuid: {generated_uuid}")
+
     async def cmd_kiss(self, message, command_args):
         if not message.mentions:
             return await self.send_and_clean(message.channel, "you need to mention someone to kiss")
@@ -2753,7 +2772,6 @@ class AIResponder(discord.Client):
             watched_list = []
             if self.watch_all_dms:
                 watched_list.append("direct messages (dm)")
-            #
             for guild_id in list(self.watched_guilds):
                 guild = self.get_guild(guild_id)
                 if guild:
