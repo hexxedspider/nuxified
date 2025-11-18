@@ -123,6 +123,21 @@ class AIResponder(discord.Client):
         self.cdm_tasks = {}
         self.api = RedGifsAPI()
         self.af_api = "https://api.alexflipnote.dev"
+        self.autobump_task = None
+        self.autobump_channel = None
+        self.autoowod_task = None
+        self.autoowod_time = None
+        self.autoowod_channel = None
+        self.voice_watch_enabled = set()
+        autobump_channel_id = config_data.get('autobump_channel_id', None)
+        if autobump_channel_id:
+            self.autobump_channel = self.get_channel(autobump_channel_id)
+        autoowod_channel_id = config_data.get('autoowod_channel_id', None)
+        if autoowod_channel_id:
+            self.autoowod_channel = self.get_channel(autoowod_channel_id)
+        self.autoowod_time = config_data.get('autoowod_time', None)
+        self.voice_watch_enabled = set(config_data.get('voice_watch_enabled', set()))
+        self.autoreact_rules = config_data.get('autoreact_rules', [])
         unique = os.getenv('TOKEN', '') or str(os.getpid())
         seed = int(hashlib.sha256(unique.encode()).hexdigest(), 16) % (10**8)
         self.rand = random.Random(seed)
@@ -202,7 +217,12 @@ class AIResponder(discord.Client):
                 "nux statustoggle": "toggles the bot's rotating status messages on or off",
                 "nux ghost": "toggles entirely traceless mode",
                 "nux ai memory <user_id>": "shows ai conversation history with user",
-                "nux learn <phrase> | <response>": "teaches custom ai responses"
+                "nux learn <phrase> | <response>": "teaches custom ai responses",
+                "nux autobump <start/stop> <channel_id>": "automatically bumps disboard channel every 2-2.5 hours",
+                "nux autoowod start <channel_id> <HH:MM>": "automatically does 'owo daily' at scheduled UTC time with variation",
+                "nux voicewatch <guild_id | list>": "toggle voice channel logging for a guild",
+                "nux addall <server_id> --force": "add all members in a server as friends (owner only)",
+                "nux autoreact": "automatically reacts to messages in channels based on keywords"
             },
             "restricted / misc commands you dont have access to, or don't fit in the categories": {
                 "nux ocmds": "sends a message with commands only the owner can use",
@@ -348,7 +368,12 @@ class AIResponder(discord.Client):
         "nux nasaapod": self.cmd_nasaapod,
         "nux steamprofile": self.cmd_steamprofile,
         "nux osu": self.cmd_osu,
-        "nux pull": self.cmd_pull
+        "nux pull": self.cmd_pull,
+        "nux autobump": self.cmd_autobump,
+        "nux autoowod": self.cmd_autoowod,
+        "nux voicewatch": self.cmd_voicewatch,
+        "nux addall": self.cmd_addall,
+        "nux autoreact": self.cmd_autoreact
 }
 
     def build_help_message(self):
@@ -434,10 +459,11 @@ class AIResponder(discord.Client):
 
         if matched_command_key:
             command_func = self.commands[matched_command_key]
-            if not command_args:
-                await command_func(message)
-            else:
-                await command_func(message, command_args)
+            await command_func(message, command_args)
+            try:
+                await message.delete()
+            except:
+                pass
             return
 
         if self.ghost_mode and message.author == self.user:
@@ -464,6 +490,19 @@ class AIResponder(discord.Client):
                     reply = await self.ask_openrouter(message.author.id, message.author.name, message.content)
                     await self.send_and_clean(message.channel, reply)
                 return
+
+        for rule in self.autoreact_rules:
+            if rule['channel_id'] == message.channel.id and rule['keyword'].lower() in message.content.lower():
+                try:
+                    emoji_str = rule['emoji']
+                    if rule.get('emoji_id'):
+                        emoji = self.get_emoji(rule['emoji_id'])
+                        if emoji:
+                            await message.add_reaction(emoji)
+                    else:
+                        await message.add_reaction(emoji_str)
+                except Exception as e:
+                    print(f"Autoreact error: {e}")
 
         if message.author.id == self.owner_id:
             if lowered == "nux ai off":
@@ -1808,7 +1847,7 @@ class AIResponder(discord.Client):
             "im not active often", #49
             "we love casting spells", #50
             "i will add whatever you want here", #51
-            "discord.gg/dEnF55hgaG - free movies + shows", #52
+            "discord.gg/dEnF55hgaG - free movies + shows (owned by me!)", #52
             "the mitochondria is the powerhouse of the cell", #53
             "in my room!", #54
             "if i do, she may come to life", #55
@@ -2665,6 +2704,288 @@ class AIResponder(discord.Client):
         generated_uuid = str(uuid.uuid4())
         await self.send_and_clean(message.channel, f"generated uuid: {generated_uuid}")
 
+    @owner_only()
+    async def cmd_autobump(self, message, command_args=""):
+        parts = command_args.split()
+
+        if not parts:
+            if self.autobump_task and not self.autobump_task.done():
+                await self.send_and_clean(message.channel, f"autobump running in channel id {self.autobump_channel.id}")
+            else:
+                await self.send_and_clean(message.channel, "autobump not running")
+            return
+
+        action = parts[0].lower()
+
+        if action == "start":
+            if len(parts) < 2:
+                await self.send_and_clean(message.channel, "usage nux autobump start <channel_id>")
+                return
+
+            try:
+                channel_id = int(parts[1])
+                channel = self.get_channel(channel_id)
+                if not channel or not isinstance(channel, discord.TextChannel):
+                    await self.send_and_clean(message.channel, "invalid channel id or not text channel")
+                    return
+
+                if self.autobump_task and not self.autobump_task.done():
+                    await self.send_and_clean(message.channel, "autobump already running")
+                    return
+
+                self.autobump_channel = channel
+                self.autobump_task = self.loop.create_task(self._autobump_worker(channel))
+                await self.send_and_clean(message.channel, f"autobump started in {channel}")
+
+            except ValueError:
+                await self.send_and_clean(message.channel, "invalid channel id")
+
+        elif action == "stop":
+            if self.autobump_task:
+                self.autobump_task.cancel()
+                try:
+                    await self.autobump_task
+                except asyncio.CancelledError:
+                    pass
+                self.autobump_task = None
+                self.autobump_channel = None
+                await self.send_and_clean(message.channel, "autobump stopped")
+            else:
+                await self.send_and_clean(message.channel, "autobump not running")
+
+        else:
+            await self.send_and_clean(message.channel, "usage nux autobump start/stop [channel_id]")
+
+    async def _autobump_worker(self, channel):
+        while True:
+            try:
+                await channel.send("/bump")
+            except:
+                pass
+            wait_time = self.rand.randint(7200, 9000)
+            await asyncio.sleep(wait_time)
+
+    @owner_only()
+    async def cmd_autoowod(self, message, command_args=""):
+        parts = command_args.split()
+
+        if not parts:
+            if self.autoowod_task and not self.autoowod_task.done():
+                await self.send_and_clean(message.channel, f"autoowod running at {self.autoowod_time} UTC")
+            else:
+                await self.send_and_clean(message.channel, "autoowod not running")
+            return
+
+        action = parts[0].lower()
+
+        if action == "start":
+            if len(parts) < 3:
+                await self.send_and_clean(message.channel, "usage nux autoowod start <channel_id> <HH:MM> (UTC)")
+                return
+
+            try:
+                channel_id = int(parts[1])
+                channel = self.get_channel(channel_id)
+                if not channel or not isinstance(channel, discord.TextChannel):
+                    await self.send_and_clean(message.channel, "invalid channel id or not text channel")
+                    return
+
+                time_str = parts[2]
+                hour, minute = map(int, time_str.split(':'))
+                if not (0 <= hour <= 23 and 0 <= minute <= 59):
+                    raise ValueError
+
+                self.autoowod_time = time_str
+                self.autoowod_channel = channel
+                if self.autoowod_task and not self.autoowod_task.done():
+                    await self.send_and_clean(message.channel, "autoowod already running")
+                    return
+
+                self.autoowod_task = self.loop.create_task(self._autoowod_worker())
+                await self.send_and_clean(message.channel, f"autoowod started in {channel} at {self.autoowod_time} UTC")
+
+            except ValueError:
+                await self.send_and_clean(message.channel, "invalid channel id or time format")
+
+        elif action == "stop":
+            if self.autoowod_task:
+                self.autoowod_task.cancel()
+                try:
+                    await self.autoowod_task
+                except asyncio.CancelledError:
+                    pass
+                self.autoowod_task = None
+                self.autoowod_time = None
+                self.autoowod_channel = None
+                await self.send_and_clean(message.channel, "autoowod stopped")
+            else:
+                await self.send_and_clean(message.channel, "autoowod not running")
+
+        else:
+            await self.send_and_clean(message.channel, "usage nux autoowod start/stop [channel_id] [time]")
+
+    async def _autoowod_worker(self):
+        while True:
+            now = datetime.datetime.utcnow()
+            hour, minute = map(int, self.autoowod_time.split(':'))
+            scheduled = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            if scheduled <= now:
+                scheduled += datetime.timedelta(days=1)
+            wait_seconds = (scheduled - now).total_seconds()
+            variation = self.rand.uniform(-300, 300)  # +/- 5 min
+            wait_seconds += variation
+            if wait_seconds < 0:
+                wait_seconds = 900  # fallback
+            await asyncio.sleep(wait_seconds)
+            try:
+                await self.autoowod_channel.send("owo daily")
+            except:
+                pass
+
+    @owner_only()
+    async def cmd_voicewatch(self, message, command_args=""):
+        action = command_args.strip()
+
+        if not action:
+            await self.send_and_clean(message.channel, "usage nux voicewatch <guild_id | list>")
+            return
+
+        if action == "list":
+            watched = [self.get_guild(gid).name for gid in self.voice_watch_enabled if self.get_guild(gid)]
+            if watched:
+                await self.send_and_clean(message.channel, "voice watching: " + ", ".join(watched))
+            else:
+                await self.send_and_clean(message.channel, "no voice watching")
+            return
+
+        try:
+            guild_id = int(action)
+            guild = self.get_guild(guild_id)
+            if not guild:
+                await self.send_and_clean(message.channel, "invalid guild id")
+                return
+
+            if guild_id in self.voice_watch_enabled:
+                self.voice_watch_enabled.remove(guild_id)
+                await self.send_and_clean(message.channel, f"stopped voice watching {guild.name}")
+            else:
+                self.voice_watch_enabled.add(guild_id)
+                await self.send_and_clean(message.channel, f"now voice watching {guild.name}")
+
+        except ValueError:
+            await self.send_and_clean(message.channel, "invalid guild id")
+
+    async def handle_voice_state_update(self, member, before, after):
+        if not self.voice_watch_enabled:
+            return
+
+        guild = member.guild
+        if guild.id not in self.voice_watch_enabled:
+            return
+
+        timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        user = str(member)
+        before_channel = before.channel.name if before.channel else "None"
+        after_channel = after.channel.name if after.channel else "None"
+
+        if before.channel != after.channel:
+            log_line = f"[{timestamp}] {user} voice channel change: from {before_channel} to {after_channel}"
+            filename = f"logs/voice_{guild.id}.txt"
+            log_dir = "logs"
+            if not os.path.exists(log_dir):
+                os.makedirs(log_dir, exist_ok=True)
+            with open(filename, "a", encoding="utf-8") as f:
+                f.write(log_line + "\n")
+
+    @owner_only()
+    async def cmd_addall(self, message, command_args):
+        if not command_args.endswith("--force"):
+            await self.send_and_clean(message.channel, "this command requires --force")
+            return
+
+        args = command_args.replace("--force", "").strip()
+        try:
+            guild_id = int(args)
+            guild = self.get_guild(guild_id)
+            if not guild:
+                await self.send_and_clean(message.channel, "invalid server id")
+                return
+
+            members = [m for m in guild.members if not m.bot and m.id != self.user.id]
+            await self.send_and_clean(message.channel, f"adding {len(members)} friends")
+            for member in members:
+                try:
+                    await self.add_friend(member)
+                    await asyncio.sleep(2)
+                except:
+                    pass
+            await self.send_and_clean(message.channel, "finished")
+
+        except ValueError:
+            await self.send_and_clean(message.channel, "invalid server id")
+
+    async def cmd_autoreact(self, message, command_args=""):
+        args = command_args.split()
+        if not args:
+            # list current autoreact rules
+            if not self.autoreact_rules:
+                await self.send_and_clean(message.channel, "no autoreact rules set")
+                return
+            response = "autoreact rules:\n"
+            for rule in self.autoreact_rules:
+                try:
+                    emoji = self.get_emoji(rule['emoji_id']) if 'emoji_id' in rule else rule['emoji']
+                    channel = self.get_channel(rule['channel_id'])
+                    response += f"- {channel.name if channel else 'unknown'}: '{rule['keyword']}' -> {emoji}\n"
+                except:
+                    response += f"- unknown: '{rule['keyword']}' -> {rule.get('emoji', 'unknown')}\n"
+            await self.send_and_clean(message.channel, response.strip())
+            return
+
+        action = args[0].lower()
+        if action == "remove":
+            if len(args) < 3:
+                await self.send_and_clean(message.channel, "usage nux autoreact remove <channel_id> <keyword>")
+                return
+            try:
+                channel_id = int(args[1])
+                keyword = args[2].lower()
+                new_rules = [r for r in self.autoreact_rules if not (r['channel_id'] == channel_id and r['keyword'] == keyword)]
+                if len(new_rules) == len(self.autoreact_rules):
+                    await self.send_and_clean(message.channel, "no matching rule found")
+                else:
+                    self.autoreact_rules = new_rules
+                    self.save_config()
+                    await self.send_and_clean(message.channel, f"removed autoreact rule for keyword '{keyword}' in channel {channel_id}")
+            except ValueError:
+                await self.send_and_clean(message.channel, "invalid channel id")
+        elif len(args) >= 3:
+            try:
+                channel_id = int(action)
+                keyword = args[1].lower()
+                emoji = args[2]
+                # try to get emoji id if it's a custom emoji
+                emoji_id = None
+                if emoji.startswith("<:") and emoji.endswith(">"):
+                    emoji_id = emoji.split(":")[-1][:-1]
+                    try:
+                        emoji_id = int(emoji_id)
+                    except:
+                        pass
+                rule = {
+                    'channel_id': channel_id,
+                    'keyword': keyword,
+                    'emoji': emoji,
+                    'emoji_id': emoji_id
+                }
+                self.autoreact_rules.append(rule)
+                self.save_config()
+                await self.send_and_clean(message.channel, f"added autoreact rule: channel {channel_id}, keyword '{keyword}', emoji {emoji}")
+            except ValueError:
+                await self.send_and_clean(message.channel, "invalid channel id")
+        else:
+            await self.send_and_clean(message.channel, "usage nux autoreact [<channel_id> <keyword> <emoji> | remove <channel_id> <keyword>]")
+
     async def cmd_kiss(self, message, command_args):
         if not message.mentions:
             return await self.send_and_clean(message.channel, "you need to mention someone to kiss")
@@ -2891,9 +3212,14 @@ class AIResponder(discord.Client):
             'cleaner_settings': self.cleaner_settings,
             'status_enabled': self.status_enabled,
             'ai_enabled': self.ai_enabled,
-            'ghost_mode': self.ghost_mode, 
+            'ghost_mode': self.ghost_mode,
             'ai_cooldown_seconds': self.ai_cooldown_seconds,
             'autoreplies': self.autoreplies,
+            'autobump_channel_id': self.autobump_channel.id if self.autobump_channel else None,
+            'autoowod_channel_id': self.autoowod_channel.id if self.autoowod_channel else None,
+            'autoowod_time': self.autoowod_time,
+            'voice_watch_enabled': self.voice_watch_enabled,
+            'autoreact_rules': self.autoreact_rules,
         }
         try:
             with open('config.pkl', 'wb') as f:
@@ -3365,5 +3691,9 @@ client = AIResponder()
 @client.event
 async def on_member_join(member):
     await client.on_member_join_handler(member)
+
+@client.event
+async def on_voice_state_update(member, before, after):
+    await client.handle_voice_state_update(member, before, after)
 
 client.run(TOKEN)
