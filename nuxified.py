@@ -3130,7 +3130,7 @@ class AIResponder(discord.Client):
         await self.send_and_clean(message.channel, "send a [report](https://nukumoxy.netlify.app/), and it'll send to [here.](https://discord.gg/63mSzU8hkR)")
         await self.send_and_clean(message.channel, "\n\n-# originally, you would send a description and it would send a webhook embed to my server, but it would 100% always make your account need to reset it's password.")
 
-    async def cmd_update(self, message):
+    async def cmd_update(self, message, command_args=""):
         try:
             url = "https://api.github.com/repos/hexxedspider/nuxified/releases/latest"
             async with aiohttp.ClientSession() as session:
