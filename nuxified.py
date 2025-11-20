@@ -14,6 +14,7 @@ from barcode.writer import ImageWriter
 from googletrans import Translator
 import scipy.signal as sp_signal
 import numpy as np
+import matplotlib.pyplot as plt
 import soundfile as sf
 import xml.etree.ElementTree as ET
 import pickle
@@ -35,7 +36,7 @@ ALLOWED_USER_IDS = set(int(x) for x in os.getenv('allowed', '').split(',') if x.
 TOKEN = os.getenv('nuxified')
 STEAM_API_KEY = os.getenv('STEAM_API_KEY')
 
-VERSION = "2.2.1"
+VERSION = "3.0.0-beta"
 
 nsfw_categories = {
 "ass": ["Ass", "SexyAss", "pawgtastic", "bigasses", "assgirls", "BigAss", "booty_queens", "hugeasses", "AssPillow", "OiledAss"],
@@ -138,6 +139,7 @@ class AIResponder(discord.Client):
         self.autoowod_time = config_data.get('autoowod_time', None)
         self.voice_watch_enabled = set(config_data.get('voice_watch_enabled', set()))
         self.autoreact_rules = config_data.get('autoreact_rules', [])
+        self.weather_ip_enabled = config_data.get('weather_ip_enabled', False)
         unique = os.getenv('TOKEN', '') or str(os.getpid())
         seed = int(hashlib.sha256(unique.encode()).hexdigest(), 16) % (10**8)
         self.rand = random.Random(seed)
@@ -209,6 +211,7 @@ class AIResponder(discord.Client):
                 "nux banner <@user>": "shows a user's banner if they have one",
                 "nux stats": "shows bot statistics and system information",
                 "nux bug": "report a bug to the developer",
+                "nux repo": "show the GitHub repository link",
                 "nux update": "check for script updates on GitHub",
                 "nux joinwh <url>": "set webhook url for join notifications",
                 "nux trackjoins <guild_id | list>": "toggle or list join tracking for guilds",
@@ -221,8 +224,9 @@ class AIResponder(discord.Client):
                 "nux autobump <start/stop> <channel_id>": "automatically bumps disboard channel every 2-2.5 hours",
                 "nux autoowod start <channel_id> <HH:MM>": "automatically does 'owo daily' at scheduled UTC time with variation",
                 "nux voicewatch <guild_id | list>": "toggle voice channel logging for a guild",
-                "nux addall <server_id> --force": "add all members in a server as friends (owner only)",
-                "nux autoreact": "automatically reacts to messages in channels based on keywords"
+                "nux autoreact": "automatically reacts to messages in channels based on keywords",
+                "nux weatherip": "toggle IP geolocation for weather commands (owner only)",
+                "nux config": "display current configuration settings (owner only)"
             },
             "restricted / misc commands you dont have access to, or don't fit in the categories": {
                 "nux ocmds": "sends a message with commands only the owner can use",
@@ -278,6 +282,7 @@ class AIResponder(discord.Client):
         "nux github": self.cmd_github,
         "nux stats": self.cmd_stats,
         "nux bug": self.cmd_bug,
+        "nux repo": self.cmd_repo,
         "nux update": self.cmd_update,
         "nux dumpdm": self.cmd_dumpdm,
         "nux help": self.cmd_help,
@@ -342,6 +347,7 @@ class AIResponder(discord.Client):
         "nux autoreply": self.cmd_autoreply,
         "nux watch": self.cmd_watch,
         "nux weather": self.cmd_weather,
+        "nux weatherip": self.cmd_weatherip_toggle,
         "nux guilds": self.cmd_guilds,
         "nux didyoumean": self.cmd_didyoumean,
         "nux calc": self.cmd_calc,
@@ -373,7 +379,8 @@ class AIResponder(discord.Client):
         "nux autoowod": self.cmd_autoowod,
         "nux voicewatch": self.cmd_voicewatch,
         "nux addall": self.cmd_addall,
-        "nux autoreact": self.cmd_autoreact
+        "nux autoreact": self.cmd_autoreact,
+        "nux config": self.cmd_config
 }
 
     def build_help_message(self):
@@ -607,7 +614,7 @@ class AIResponder(discord.Client):
         except Exception as e:
             await self.send_and_clean(message.channel, f"failed during spam {e}")
 
-    async def cmd_uptime(self, message):
+    async def cmd_uptime(self, message, command_args=""):
         uptime_seconds = (datetime.datetime.utcnow() - self.start_time).total_seconds()
         uptime_str = str(datetime.timedelta(seconds=int(uptime_seconds)))
 
@@ -854,7 +861,7 @@ class AIResponder(discord.Client):
         for chunk in chunks:
             await self.send_and_clean(message.channel, chunk)
 
-    async def cmd_spacedhelp(self, message):
+    async def cmd_spacedhelp(self, message, command_args=""):
         help_msg = self.build_spaced_help_message()
         chunks = self.split_message(help_msg)
         async with message.channel.typing():
@@ -961,32 +968,32 @@ class AIResponder(discord.Client):
         data = r.json()
         await self.send_and_clean(message.channel, data.get("message", "no image found"))
 
-    async def cmd_thighs(self, message):
+    async def cmd_thighs(self, message, command_args=""):
         r = requests.get("https://nekobot.xyz/api/image?type=thigh")
         data = r.json()
         await self.send_and_clean(message.channel, data.get("message", "no image found"))
 
-    async def cmd_ass(self, message):
+    async def cmd_ass(self, message, command_args=""):
         r = requests.get("https://nekobot.xyz/api/image?type=ass")
         data = r.json()
         await self.send_and_clean(message.channel, data.get("message", "no image found"))
 
-    async def cmd_boobs(self, message):
+    async def cmd_boobs(self, message, command_args=""):
         r = requests.get("https://nekobot.xyz/api/image?type=boobs")
         data = r.json()
         await self.send_and_clean(message.channel, data.get("message", "no image found"))
 
-    async def cmd_pussy(self, message):
+    async def cmd_pussy(self, message, command_args=""):
         r = requests.get("https://nekobot.xyz/api/image?type=pussy")
         data = r.json()
         await self.send_and_clean(message.channel, data.get("message", "no image found"))
 
-    async def cmd_pgif(self, message):
+    async def cmd_pgif(self, message, command_args=""):
         r = requests.get("https://nekobot.xyz/api/image?type=pgif")
         data = r.json()
         await self.send_and_clean(message.channel, data.get("message", "no image found"))
 
-    async def cmd_neko(self, message):
+    async def cmd_neko(self, message, command_args=""):
         r = requests.get("https://nekobot.xyz/api/image?type=neko")
         data = r.json()
         await self.send_and_clean(message.channel, data.get("message", "no image found"))
@@ -999,7 +1006,7 @@ class AIResponder(discord.Client):
                 data = await resp.json()
                 await self.send_and_clean(message.channel, data.get("url", "no image found"))
 
-    async def cmd_hug(self, message):
+    async def cmd_hug(self, message, command_args=""):
         if not message.mentions:
             await self.send_and_clean(message.channel, "you need to mention someone to hug")
             return
@@ -1028,7 +1035,7 @@ class AIResponder(discord.Client):
         msg = self.rand.choice(hug_messages)
         await self.send_and_clean(message.channel, msg)
 
-    async def cmd_pat(self, message):
+    async def cmd_pat(self, message, command_args=""):
         if not message.mentions:
             await self.send_and_clean(message.channel, "you need to mention someone to pat")
             return
@@ -1057,7 +1064,7 @@ class AIResponder(discord.Client):
         msg = self.rand.choice(pat_messages)
         await self.send_and_clean(message.channel, msg)
 
-    async def cmd_slap(self, message):
+    async def cmd_slap(self, message, command_args=""):
         if not message.mentions:
             await self.send_and_clean(message.channel, "you need to mention someone to slap")
             return
@@ -1165,7 +1172,7 @@ class AIResponder(discord.Client):
         except Exception as e:
             await self.send_and_clean(message.channel, "that's not a valid expression")
 
-    async def cmd_cleardmsent(self, message):
+    async def cmd_cleardmsent(self, message, command_args=""):
         channel = message.channel
         channel_id = channel.id
 
@@ -1226,7 +1233,7 @@ class AIResponder(discord.Client):
         except Exception:
             pass
 
-    async def cmd_burstcdm(self, message):
+    async def cmd_burstcdm(self, message, command_args=""):
         channel = message.channel
         deleted = 0
         async for msg in channel.history(limit=100):
@@ -1242,7 +1249,7 @@ class AIResponder(discord.Client):
         if deleted > 0:
             await self.send_and_clean(channel, f"burst deleted {deleted} messages")
 
-    async def cmd_nsfwhelp(self, message):
+    async def cmd_nsfwhelp(self, message, command_args=""):
         nsfwhelp_msg = self.build_nsfwhelp_message()
         chunks = self.split_message(nsfwhelp_msg)
 
@@ -1250,7 +1257,7 @@ class AIResponder(discord.Client):
             msg = await message.channel.send(chunk)
             asyncio.create_task(self.delete_after_delay(msg, 15))
 
-    async def cmd_ownercmds(self, message):
+    async def cmd_ownercmds(self, message, command_args=""):
         help_text = (
             "available commands\n"
             "- `nux nickname <nick>` changes my nickname in the current server\n"
@@ -1262,6 +1269,9 @@ class AIResponder(discord.Client):
             "- `nux backup` saves my friends list and servers/guilds i'm to a file for me\n"
             "- `nux pull` pulls the latest changes from GitHub using git pull\n"
             "- `nux ai setup` sets up the ai personality for openrouter (dm only)\n"
+            "- `nux ai preset <preset_name>` loads a saved ai personality preset (dm only)\n"
+            "- `nux config` shows the current confg, and ai config.\n"
+            "- `nux weatherip` enables/disables ip geolocation for weather command, off by default to avoid accidental doxxing\n\n"
                 "[⠀](https://cdn.discordapp.com/attachments/1136379503116025939/1387306227842945106/image.png?ex=685cdd1b&is=685b8b9b&hm=25ee59d3d9c686073400a51a4f70fb45e9d036ce9e32293cf9afce57081fac15&)\n\n"
                 "**how**\n"
                 "using a @owner_only() decorator, that pulls my own id and uses it to make it so if the command has that decorator, only i can use it, and this is what it looks like in use\n-- you can try to use the command, but obviously nothing will happen --[⠀](https://cdn.discordapp.com/attachments/1136379503116025939/1387305398964326440/image.png?ex=685cdc56&is=685b8ad6&hm=c66308c3bc829df58dd0706ec264569a2aeffc4c58d5d1ea321b2ba57e4ea44f&)"
@@ -1314,8 +1324,23 @@ class AIResponder(discord.Client):
     async def cmd_weather(self, message, command_args):
         args = command_args.strip()
         if not args:
-            return await self.send_and_clean(message.channel, "usage nux weather <location>")
-        location = args
+            if not self.weather_ip_enabled:
+                return await self.send_and_clean(message.channel, "usage nux weather <location>")
+            async with aiohttp.ClientSession() as session:
+                resp = await session.get('https://api.ipify.org')
+                if resp.status != 200:
+                    return await self.send_and_clean(message.channel, "failed to get IP")
+                ip = await resp.text()
+                data = await session.get(f'https://ipapi.co/{ip}/json')
+                if data.status != 200:
+                    return await self.send_and_clean(message.channel, "failed to get geolocation")
+                data = await data.json()
+                city = data.get('city')
+                if not city:
+                    return await self.send_and_clean(message.channel, "couldn't determine city from IP")
+                location = city
+        else:
+            location = args
         url = f"https://wttr.in/{location}?format=3"
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
@@ -1325,7 +1350,14 @@ class AIResponder(discord.Client):
                 await self.send_and_clean(message.channel, weather)
 
     @owner_only()
-    async def cmd_guilds(self, message):
+    async def cmd_weatherip_toggle(self, message, command_args):
+        self.weather_ip_enabled = not self.weather_ip_enabled
+        self.save_config()
+        status = "enabled" if self.weather_ip_enabled else "disabled"
+        await self.send_and_clean(message.channel, f"IP geolocation for weather {status}")
+
+    @owner_only()
+    async def cmd_guilds(self, message, command_args=""):
         guild_list = [f"{g.name} (id {g.id})" for g in self.guilds]
         if not guild_list:
             await self.send_and_clean(message.channel, "i'm not in any guilds")
@@ -1875,7 +1907,7 @@ class AIResponder(discord.Client):
             await asyncio.sleep(30)
 
     @owner_only()
-    async def cmd_statustoggle(self, message):
+    async def cmd_statustoggle(self, message, command_args=""):
         if self.status_enabled:
             if self.status_task:
                 self.status_task.cancel()
@@ -2148,7 +2180,7 @@ class AIResponder(discord.Client):
                 print(f"rule34 api error {e}")
                 await self.send_and_clean(message.channel, "an error occurred while fetching rule34 content")
 
-    async def cmd_nsfwlist(self, message):
+    async def cmd_nsfwlist(self, message, command_args=""):
         categories = ', '.join(nsfw_categories.keys())
         return await self.send_and_clean(message.channel, f"available nsfw categories {categories}")
 
@@ -2290,7 +2322,7 @@ class AIResponder(discord.Client):
         
         await self.send_and_clean(message.channel, result)
 
-    async def cmd_fexample(self, message):
+    async def cmd_fexample(self, message, command_args=""):
         await self.send_and_clean(message.channel, f"this is what it looks like currently the timestamps are current though, as it's 6/28/25, at 4:30 a.m. when writing out this message")
 
     async def cmd_rot13(self, message, command_args):
@@ -2323,7 +2355,7 @@ class AIResponder(discord.Client):
         result = ''.join([char for char in text.lower() if char not in vowels])
         await self.send_and_clean(message.channel, result)
 
-    async def cmd_ping(self, message):
+    async def cmd_ping(self, message, command_args=""):
         latency = round(self.latency * 1000)
         await self.send_and_clean(message.channel, f"{latency}ms")
 
@@ -2347,7 +2379,7 @@ class AIResponder(discord.Client):
        await self.send_and_clean(message.channel, info)
 
     @owner_only()
-    async def cmd_eval(self, message):
+    async def cmd_eval(self, message, command_args=""):
         if message.author.id != self.owner_id:
             return
         code = message.content[len("nux eval"):].strip()
@@ -2360,7 +2392,7 @@ class AIResponder(discord.Client):
             await self.send_and_clean(message.channel, f"error {e}")
 
     @owner_only()
-    async def cmd_leaveguild(self, message):
+    async def cmd_leaveguild(self, message, command_args=""):
         if message.author.id != self.owner_id:
             return
 
@@ -2381,13 +2413,13 @@ class AIResponder(discord.Client):
             await self.send_and_clean(message.channel, "guild not found")
 
     @owner_only()
-    async def cmd_restart(self, message):
+    async def cmd_restart(self, message, command_args=""):
         await self.send_and_clean(message.channel, "restarting")
         await self.close()
         os.execl(sys.executable, sys.executable, *sys.argv)
 
     @owner_only()
-    async def cmd_simulate(self, message):
+    async def cmd_simulate(self, message, command_args=""):
         parts = message.content.strip().split()
         if len(parts) < 4 or not message.mentions:
             return await self.send_and_clean(message.channel, "usage nux simulate <@user> <command>")
@@ -2410,7 +2442,7 @@ class AIResponder(discord.Client):
         await self.commands[key](fake_message)
 
     @owner_only()
-    async def cmd_backup(self, message):
+    async def cmd_backup(self, message, command_args=""):
         backup_data = {
             "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "guilds": [],
@@ -2437,7 +2469,7 @@ class AIResponder(discord.Client):
         await self.send_and_clean(message.channel, f"backup saved as `{filename}`", file=discord.File(filename))
 
     @owner_only()
-    async def cmd_print(self, message):
+    async def cmd_print(self, message, command_args=""):
         raw_message = message.content.strip()
         if not raw_message.lower().startswith("nux print"):
             return
@@ -2451,7 +2483,7 @@ class AIResponder(discord.Client):
         await self.send_and_clean(message.channel, "message printed to terminal")
 
     @owner_only()
-    async def cmd_shutdown(self, message):
+    async def cmd_shutdown(self, message, command_args=""):
         await self.send_and_clean(message.channel, "shutting down gracefully")
         await self.close()
         import sys
@@ -2495,7 +2527,7 @@ class AIResponder(discord.Client):
                     header += f" ({album_name})"
                 await self.send_and_clean(message.channel, f"{header}\n{lyrics}")
 
-    async def cmd_usercount(self, message):
+    async def cmd_usercount(self, message, command_args=""):
         if not message.guild:
             return await self.send_and_clean(message.channel, "this command only works in a server")
         online = len([m for m in message.guild.members if m.status == discord.Status.online])
@@ -2520,7 +2552,7 @@ class AIResponder(discord.Client):
                 info = f"ip lookup\ncountry {data.get('country')}\nregion {data.get('regionName')}\ncity {data.get('city')}\nisp {data.get('isp')}\norg {data.get('org')}"
                 await self.send_and_clean(message.channel, info)
 
-    async def cmd_nsfw_nhentai(self, message):
+    async def cmd_nsfw_nhentai(self, message, command_args=""):
         query = message.content.strip()[len("nux nhentai"):].strip()
         if not query:
             return await self.send_and_clean(message.channel, "usage nux nhentai <search>")
@@ -2543,7 +2575,7 @@ class AIResponder(discord.Client):
                 await self.send_and_clean(message.channel, f"{title}\n{link}")
 
     @owner_only()
-    async def cmd_autoreply(self, message):
+    async def cmd_autoreply(self, message, command_args=""):
         args = message.content.strip()[len("nux autoreply"):].strip().split(maxsplit=1)
         if not args:
             return await self.send_and_clean(message.channel, "usage nux autoreply <trigger> <response1> | <response2> | ...")
@@ -2559,7 +2591,7 @@ class AIResponder(discord.Client):
         self.save_config()
         await self.send_and_clean(message.channel, f"autoreply set for '{trigger}' with {len(responses)} responses")
 
-    async def cmd_serverinfo(self, message):
+    async def cmd_serverinfo(self, message, command_args=""):
         if not message.guild:
             return await self.send_and_clean(message.channel, "this command only works in a server")
 
@@ -2605,7 +2637,7 @@ class AIResponder(discord.Client):
 
         await self.send_and_clean(message.channel, info)
 
-    async def cmd_channelinfo(self, message):
+    async def cmd_channelinfo(self, message, command_args=""):
         if not message.guild:
             return await self.send_and_clean(message.channel, "this command only works in a server")
 
@@ -2631,7 +2663,7 @@ class AIResponder(discord.Client):
 
         await self.send_and_clean(message.channel, info)
 
-    async def cmd_emojis(self, message):
+    async def cmd_emojis(self, message, command_args=""):
         if not message.guild:
             return await self.send_and_clean(message.channel, "this server has no custom emojis")
 
@@ -2700,7 +2732,7 @@ class AIResponder(discord.Client):
         result = ' '.join(anagram_words)
         await self.send_and_clean(message.channel, result)
 
-    async def cmd_uuid(self, message):
+    async def cmd_uuid(self, message, command_args=""):
         generated_uuid = str(uuid.uuid4())
         await self.send_and_clean(message.channel, f"generated uuid: {generated_uuid}")
 
@@ -2832,10 +2864,10 @@ class AIResponder(discord.Client):
             if scheduled <= now:
                 scheduled += datetime.timedelta(days=1)
             wait_seconds = (scheduled - now).total_seconds()
-            variation = self.rand.uniform(-300, 300)  # +/- 5 min
+            variation = self.rand.uniform(-300, 300)
             wait_seconds += variation
             if wait_seconds < 0:
-                wait_seconds = 900  # fallback
+                wait_seconds = 900 
             await asyncio.sleep(wait_seconds)
             try:
                 await self.autoowod_channel.send("owo daily")
@@ -2927,7 +2959,6 @@ class AIResponder(discord.Client):
     async def cmd_autoreact(self, message, command_args=""):
         args = command_args.split()
         if not args:
-            # list current autoreact rules
             if not self.autoreact_rules:
                 await self.send_and_clean(message.channel, "no autoreact rules set")
                 return
@@ -2943,6 +2974,7 @@ class AIResponder(discord.Client):
             return
 
         action = args[0].lower()
+
         if action == "remove":
             if len(args) < 3:
                 await self.send_and_clean(message.channel, "usage nux autoreact remove <channel_id> <keyword>")
@@ -2964,7 +2996,6 @@ class AIResponder(discord.Client):
                 channel_id = int(action)
                 keyword = args[1].lower()
                 emoji = args[2]
-                # try to get emoji id if it's a custom emoji
                 emoji_id = None
                 if emoji.startswith("<:") and emoji.endswith(">"):
                     emoji_id = emoji.split(":")[-1][:-1]
@@ -3014,7 +3045,7 @@ class AIResponder(discord.Client):
         msg = self.rand.choice(kiss_messages)
         await self.send_and_clean(message.channel, msg)
 
-    async def cmd_coinflip(self, message):
+    async def cmd_coinflip(self, message, command_args=""):
         result = self.rand.choice(["heads", "tails"])
         await self.send_and_clean(message.channel, f"coin flip {result}")
 
@@ -3039,7 +3070,7 @@ class AIResponder(discord.Client):
         banner_url = user.banner.url
         await self.send_and_clean(message.channel, f"{user}'s [banner]({banner_url})")
 
-    async def cmd_wiki(self, message):
+    async def cmd_wiki(self, message, command_args=""):
         query = message.content.strip()[len("nux wiki"):].strip()
         if not query:
             return await self.send_and_clean(message.channel, "usage nux wiki <search term>")
@@ -3063,7 +3094,7 @@ class AIResponder(discord.Client):
                 info = f"{title}\n{extract}\n\nread more on wikipedia {page_url}"
                 await self.send_and_clean(message.channel, info)
 
-    async def cmd_github(self, message):
+    async def cmd_github(self, message, command_args=""):
         username = message.content.strip()[len("nux github"):].strip()
         if not username:
             return await self.send_and_clean(message.channel, "usage nux github <username>")
@@ -3100,7 +3131,25 @@ class AIResponder(discord.Client):
 
                 await self.send_and_clean(message.channel, info)
 
-    async def cmd_stats(self, message):
+    @owner_only()
+    async def cmd_config(self, message, command_args=""):
+        try:
+            configuration = {}
+            if os.path.exists('config.pkl'):
+                with open('config.pkl', 'rb') as f:
+                    configuration['config'] = pickle.load(f)
+            if os.path.exists('ai_config.pkl'):
+                with open('ai_config.pkl', 'rb') as f:
+                    configuration['ai_config'] = pickle.load(f)
+
+            formatted = json.dumps(configuration, indent=4, default=str)
+            chunks = [formatted[i:i+1900] for i in range(0, len(formatted), 1900)]
+            for chunk in chunks:
+                await self.send_and_clean(message.channel, f"```\n{chunk}```")
+        except Exception as e:
+            await self.send_and_clean(message.channel, f"failed to load config: {e}")
+
+    async def cmd_stats(self, message, command_args=""):
         uptime_seconds = (datetime.datetime.utcnow() - self.start_time).total_seconds()
         uptime_str = str(datetime.timedelta(seconds=int(uptime_seconds)))
 
@@ -3119,16 +3168,31 @@ class AIResponder(discord.Client):
         info += f"ram usage {ram_usage}%\n"
         info += f"latency {round(self.latency * 1000)}ms\n"
         info += f"servers {total_guilds:,}\n"
-        info += f"total users {total_users:,}\n"
+        info += f"exposed to {total_users:,} users\n"
         info += f"total commands {total_commands}\n"
         info += f"python version {platform.python_version()}\n"
         info += f"discord.py version {discord.__version__}"
 
-        await self.send_and_clean(message.channel, info)
+        fig, ax = plt.subplots()
+        labels = ['CPU', 'RAM']
+        values = [cpu_usage, ram_usage]
+        ax.bar(labels, values, color=['blue', 'green'])
+        ax.set_ylabel('Percentage')
+        ax.set_title('System Usage')
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png')
+        buf.seek(0)
+        plt.close(fig)
+        file = discord.File(buf, 'stats_graph.png')
 
-    async def cmd_bug(self, message):
+        await self.send_and_clean(message.channel, info, file=file)
+
+    async def cmd_bug(self, message, command_args=""):
         await self.send_and_clean(message.channel, "send a [report](https://nukumoxy.netlify.app/), and it'll send to [here.](https://discord.gg/63mSzU8hkR)")
         await self.send_and_clean(message.channel, "\n\n-# originally, you would send a description and it would send a webhook embed to my server, but it would 100% always make your account need to reset it's password.")
+
+    async def cmd_repo(self, message, command_args=""):
+        await self.send_and_clean(message.channel, "https://github.com/hexxedspider/nuxified")
 
     async def cmd_update(self, message, command_args=""):
         try:
@@ -3220,6 +3284,7 @@ class AIResponder(discord.Client):
             'autoowod_time': self.autoowod_time,
             'voice_watch_enabled': self.voice_watch_enabled,
             'autoreact_rules': self.autoreact_rules,
+            'weather_ip_enabled': self.weather_ip_enabled,
         }
         try:
             with open('config.pkl', 'wb') as f:
