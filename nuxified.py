@@ -36,7 +36,7 @@ ALLOWED_USER_IDS = set(int(x) for x in os.getenv('allowed', '').split(',') if x.
 TOKEN = os.getenv('nuxified')
 STEAM_API_KEY = os.getenv('STEAM_API_KEY')
 
-VERSION = "3.1.0"
+VERSION = "3.1.1"
 
 nsfw_categories = {
 "ass": ["Ass", "SexyAss", "pawgtastic", "bigasses", "assgirls", "BigAss", "booty_queens", "hugeasses", "AssPillow", "OiledAss"],
@@ -124,15 +124,10 @@ class AIResponder(discord.Client):
         self.cdm_tasks = {}
         self.api = RedGifsAPI()
         self.af_api = "https://api.alexflipnote.dev"
-        self.autobump_task = None
-        self.autobump_channel = None
         self.autoowod_task = None
         self.autoowod_time = None
         self.autoowod_channel = None
         self.voice_watch_enabled = set()
-        autobump_channel_id = config_data.get('autobump_channel_id', None)
-        if autobump_channel_id:
-            self.autobump_channel = self.get_channel(autobump_channel_id)
         autoowod_channel_id = config_data.get('autoowod_channel_id', None)
         if autoowod_channel_id:
             self.autoowod_channel = self.get_channel(autoowod_channel_id)
@@ -221,7 +216,6 @@ class AIResponder(discord.Client):
                 "nux ghost": "toggles entirely traceless mode",
                 "nux ai memory <user_id>": "shows ai conversation history with user",
                 "nux learn <phrase> | <response>": "teaches custom ai responses",
-                "nux autobump <start/stop> <channel_id>": "automatically bumps disboard channel every 2-2.5 hours",
                 "nux autoowod start <channel_id> <HH:MM>": "automatically does 'owo daily' at scheduled UTC time with variation",
                 "nux voicewatch <guild_id | list>": "toggle voice channel logging for a guild",
                 "nux autoreact": "automatically reacts to messages in channels based on keywords",
@@ -375,7 +369,6 @@ class AIResponder(discord.Client):
         "nux steamprofile": self.cmd_steamprofile,
         "nux osu": self.cmd_osu,
         "nux pull": self.cmd_pull,
-        "nux autobump": self.cmd_autobump,
         "nux autoowod": self.cmd_autoowod,
         "nux voicewatch": self.cmd_voicewatch,
         "nux addall": self.cmd_addall,
@@ -3218,7 +3211,6 @@ class AIResponder(discord.Client):
             'ghost_mode': self.ghost_mode,
             'ai_cooldown_seconds': self.ai_cooldown_seconds,
             'autoreplies': self.autoreplies,
-            'autobump_channel_id': self.autobump_channel.id if self.autobump_channel else None,
             'autoowod_channel_id': self.autoowod_channel.id if self.autoowod_channel else None,
             'autoowod_time': self.autoowod_time,
             'voice_watch_enabled': self.voice_watch_enabled,
