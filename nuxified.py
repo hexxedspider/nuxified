@@ -36,7 +36,7 @@ ALLOWED_USER_IDS = set(int(x) for x in os.getenv('allowed', '').split(',') if x.
 TOKEN = os.getenv('nuxified')
 STEAM_API_KEY = os.getenv('STEAM_API_KEY')
 
-VERSION = "3.0.0-beta"
+VERSION = "3.1.0"
 
 nsfw_categories = {
 "ass": ["Ass", "SexyAss", "pawgtastic", "bigasses", "assgirls", "BigAss", "booty_queens", "hugeasses", "AssPillow", "OiledAss"],
@@ -2735,67 +2735,6 @@ class AIResponder(discord.Client):
     async def cmd_uuid(self, message, command_args=""):
         generated_uuid = str(uuid.uuid4())
         await self.send_and_clean(message.channel, f"generated uuid: {generated_uuid}")
-
-    @owner_only()
-    async def cmd_autobump(self, message, command_args=""):
-        parts = command_args.split()
-
-        if not parts:
-            if self.autobump_task and not self.autobump_task.done():
-                await self.send_and_clean(message.channel, f"autobump running in channel id {self.autobump_channel.id}")
-            else:
-                await self.send_and_clean(message.channel, "autobump not running")
-            return
-
-        action = parts[0].lower()
-
-        if action == "start":
-            if len(parts) < 2:
-                await self.send_and_clean(message.channel, "usage nux autobump start <channel_id>")
-                return
-
-            try:
-                channel_id = int(parts[1])
-                channel = self.get_channel(channel_id)
-                if not channel or not isinstance(channel, discord.TextChannel):
-                    await self.send_and_clean(message.channel, "invalid channel id or not text channel")
-                    return
-
-                if self.autobump_task and not self.autobump_task.done():
-                    await self.send_and_clean(message.channel, "autobump already running")
-                    return
-
-                self.autobump_channel = channel
-                self.autobump_task = self.loop.create_task(self._autobump_worker(channel))
-                await self.send_and_clean(message.channel, f"autobump started in {channel}")
-
-            except ValueError:
-                await self.send_and_clean(message.channel, "invalid channel id")
-
-        elif action == "stop":
-            if self.autobump_task:
-                self.autobump_task.cancel()
-                try:
-                    await self.autobump_task
-                except asyncio.CancelledError:
-                    pass
-                self.autobump_task = None
-                self.autobump_channel = None
-                await self.send_and_clean(message.channel, "autobump stopped")
-            else:
-                await self.send_and_clean(message.channel, "autobump not running")
-
-        else:
-            await self.send_and_clean(message.channel, "usage nux autobump start/stop [channel_id]")
-
-    async def _autobump_worker(self, channel):
-        while True:
-            try:
-                await channel.send("/bump")
-            except:
-                pass
-            wait_time = self.rand.randint(7200, 9000)
-            await asyncio.sleep(wait_time)
 
     @owner_only()
     async def cmd_autoowod(self, message, command_args=""):
