@@ -36,7 +36,7 @@ ALLOWED_USER_IDS = set(int(x) for x in os.getenv('allowed', '').split(',') if x.
 TOKEN = os.getenv('nuxified')
 STEAM_API_KEY = os.getenv('STEAM_API_KEY')
 
-VERSION = "3.1.1"
+VERSION = "3.2.0"
 
 nsfw_categories = {
 "ass": ["Ass", "SexyAss", "pawgtastic", "bigasses", "assgirls", "BigAss", "booty_queens", "hugeasses", "AssPillow", "OiledAss"],
@@ -64,7 +64,7 @@ MORSE_CODE_DICT = {
 
 MORSE_CODE_REVERSE = {v: k for k, v in MORSE_CODE_DICT.items()}
 
-FIXED_AI_PART = "\n\nthis ai is operating as a discord selfbot created by nuxified (nux) it must always adhere to discord's terms of service and guidelines for bots, even though it's a selfbot responses should be short (1-2 sentences unless asked otherwise), and only ever in lowercase with no emojis and minimal punctuation. if the username contains characters like _underscores_ like that, put a backwards slash (like this, \\_underscore_) to avoid discord formatting."
+FIXED_AI_PART = "\n\nthis ai is operating as a discord selfbot created by nuxified (nux) it must always adhere to discord's terms of service and guidelines for bots, even though it's a selfbot responses should be short (1-2 sentences unless asked otherwise), and only ever in lowercase with no emojis and minimal punctuation. if the username contains characters like _underscores_ like that, put a backwards slash (like this, \\_underscore_) to avoid discord formatting." 
 
 class AIResponder(discord.Client):
     def __init__(self):
@@ -218,9 +218,7 @@ class AIResponder(discord.Client):
                 "nux learn <phrase> | <response>": "teaches custom ai responses",
                 "nux autoowod start <channel_id> <HH:MM>": "automatically does 'owo daily' at scheduled UTC time with variation",
                 "nux voicewatch <guild_id | list>": "toggle voice channel logging for a guild",
-                "nux autoreact": "automatically reacts to messages in channels based on keywords",
-                "nux weatherip": "toggle IP geolocation for weather commands (owner only)",
-                "nux config": "display current configuration settings (owner only)"
+                "nux autoreact": "automatically reacts to messages in channels based on keywords"
             },
             "restricted / misc commands you dont have access to, or don't fit in the categories": {
                 "nux ocmds": "sends a message with commands only the owner can use",
@@ -371,43 +369,43 @@ class AIResponder(discord.Client):
         "nux pull": self.cmd_pull,
         "nux autoowod": self.cmd_autoowod,
         "nux voicewatch": self.cmd_voicewatch,
-        "nux addall": self.cmd_addall,
         "nux autoreact": self.cmd_autoreact,
-        "nux config": self.cmd_config
+        "nux config": self.cmd_config,
+        "nux version": self.cmd_version
 }
 
     def build_help_message(self):
         help_message = "available commands\n\n"
-        for category, commands in self.help_categories.items():
+        for category, commands in sorted(self.help_categories.items(), key=lambda x: x[0]):
             help_message += f"{category}\n"
             if not isinstance(commands, dict):
                 help_message += f"error {category} is not formatted correctly\n"
                 continue
-            for cmd, desc in commands.items():
+            for cmd, desc in sorted(commands.items()):
                 help_message += f"- `{cmd}` {desc}\n"
             help_message += "\n"
         return help_message
 
     def build_spaced_help_message(self):
         help_message = "available commands\n\n\n"
-        for category, commands in self.help_categories.items():
+        for category, commands in sorted(self.help_categories.items(), key=lambda x: x[0]):
             help_message += f"{category}\n\n"
             if not isinstance(commands, dict):
                 help_message += f"error {category} is not formatted correctly\n\n\n"
                 continue
-            for cmd, desc in commands.items():
+            for cmd, desc in sorted(commands.items()):
                 help_message += f"- `{cmd}` {desc}\n\n\n"
             help_message += "\n\n"
         return help_message
 
     def build_nsfwhelp_message(self):
         nsfwhelp_message = "available commands\n\n"
-        for category, commands in self.nsfwhelp_categories.items():
+        for category, commands in sorted(self.nsfwhelp_categories.items(), key=lambda x: x[0]):
             nsfwhelp_message += f"{category}\n"
             if not isinstance(commands, dict):
                 nsfwhelp_message += f"error {category} is not formatted correctly\n"
                 continue
-            for cmd, desc in commands.items():
+            for cmd, desc in sorted(commands.items()):
                 nsfwhelp_message += f"- `{cmd}` {desc}\n"
             nsfwhelp_message += "\n"
         return nsfwhelp_message
@@ -2861,33 +2859,6 @@ class AIResponder(discord.Client):
             with open(filename, "a", encoding="utf-8") as f:
                 f.write(log_line + "\n")
 
-    @owner_only()
-    async def cmd_addall(self, message, command_args):
-        if not command_args.endswith("--force"):
-            await self.send_and_clean(message.channel, "this command requires --force")
-            return
-
-        args = command_args.replace("--force", "").strip()
-        try:
-            guild_id = int(args)
-            guild = self.get_guild(guild_id)
-            if not guild:
-                await self.send_and_clean(message.channel, "invalid server id")
-                return
-
-            members = [m for m in guild.members if not m.bot and m.id != self.user.id]
-            await self.send_and_clean(message.channel, f"adding {len(members)} friends")
-            for member in members:
-                try:
-                    await self.add_friend(member)
-                    await asyncio.sleep(2)
-                except:
-                    pass
-            await self.send_and_clean(message.channel, "finished")
-
-        except ValueError:
-            await self.send_and_clean(message.channel, "invalid server id")
-
     async def cmd_autoreact(self, message, command_args=""):
         args = command_args.split()
         if not args:
@@ -3681,6 +3652,9 @@ class AIResponder(discord.Client):
                 await session.post(self.join_webhook, json=payload)
         except Exception as e:
             print(f"failed to send join notification: {e}")
+
+    async def cmd_version(self, messages, command_args=""):
+        await self.send_and_clean(messages.channel, f"nuxified version: {VERSION}")
 
 client = AIResponder()
 
