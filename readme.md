@@ -2,6 +2,8 @@
 
 A comprehensive, self-hosted Discord selfbot written in Python, designed for personal use with extensive utility features and AI integration. The bot provides text manipulation, media downloading, NSFW content fetching, automated responses, and more.
 
+[Wiki here.](https://github.com/hexxedspider/nuxified/wiki)
+
 ## Key Features
 
 - **AI Integration**: AI replies (once you set up the [free] OpenRouter API key) that activates on pings (DMS ONLY, SERVER PINGS DO NOT COUNT). Custom personality that you get to pick, and you can save presets for different styles.
