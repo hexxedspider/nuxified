@@ -3,5 +3,9 @@ allowed=""
 nuxified=""
 
 OpenRouter=""
-
 STEAM_API_KEY=""
+
+spotify_client_id=""
+spotify_client_secret=""
+
+XBOX_API_KEY=""

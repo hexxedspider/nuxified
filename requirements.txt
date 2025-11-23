@@ -21,3 +21,4 @@ alexflipnote.py
 watchdog
 audioop-lts
 matplotlib
+customtkinter
