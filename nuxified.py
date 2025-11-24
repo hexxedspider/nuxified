@@ -36,7 +36,7 @@ ALLOWED_USER_IDS = set(int(x) for x in os.getenv('allowed', '').split(',') if x.
 TOKEN = os.getenv('nuxified')
 STEAM_API_KEY = os.getenv('STEAM_API_KEY')
 
-VERSION = "4.0.0"
+VERSION = "4.0.1"
 
 nsfw_categories = {
 "ass": ["Ass", "SexyAss", "pawgtastic", "bigasses", "assgirls", "BigAss", "booty_queens", "hugeasses", "AssPillow", "OiledAss"],
@@ -218,7 +218,9 @@ class nuxified(discord.Client):
                 "nux learn <phrase> | <response>": "teaches custom ai responses",
                 "nux autoowod start <channel_id> <HH:MM>": "automatically does 'owo daily' at scheduled UTC time with variation",
                 "nux voicewatch <guild_id | list>": "toggle voice channel logging for a guild",
-                "nux autoreact": "automatically reacts to messages in channels based on keywords"
+                "nux autoreact": "automatically reacts to messages in channels based on keywords",
+                "nux about": "shows links related to the bot",
+                "nux version": "shows the version of the bot",
             },
             "restricted / misc commands you dont have access to, or don't fit in the categories": {
                 "nux ocmds": "sends a message with commands only the owner can use",
@@ -371,7 +373,8 @@ class nuxified(discord.Client):
         "nux voicewatch": self.cmd_voicewatch,
         "nux autoreact": self.cmd_autoreact,
         "nux config": self.cmd_config,
-        "nux version": self.cmd_version
+        "nux version": self.cmd_version,
+        "nux about": self.cmd_about
 }
 
     def build_help_message(self):
@@ -3692,6 +3695,9 @@ class nuxified(discord.Client):
 
     async def cmd_version(self, messages, command_args=""):
         await self.send_and_clean(messages.channel, f"nuxified version: {VERSION}")
+
+    async def cmd_about(self, messages, command_args=""):
+        await self.send_and_clean(messages.channel, "github repo: https://github.com/hexxedspider/nuxified [⠀](https://files.catbox.moe/t5frn4.png)\n\ndocs: https://github.com/hexxedspider/nuxified/wiki\n\nwebsite: https://hexxedspider.github.io/nuxified")
 
 client = nuxified()
 

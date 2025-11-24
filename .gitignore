@@ -12,4 +12,4 @@ config.pkl
 
 ideas
 
-/website/update_stats.py
+**/docs/update_stats.py
