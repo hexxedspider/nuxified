@@ -127,13 +127,13 @@ body {
     justify-content: center;
     position: relative;
     padding-top: 80px;
-    overflow: hidden;
 }
 
 .hero-background {
-    position: absolute;
+    position: fixed;
     inset: 0;
     z-index: -1;
+    pointer-events: none;
 }
 
 .gradient-orb {
@@ -357,7 +357,7 @@ section {
 }
 
 .features {
-    background: linear-gradient(180deg, var(--dark-bg) 0%, rgba(139, 92, 246, 0.05) 100%);
+    background: linear-gradient(180deg, var(--dark-bg) 0%, rgba(175, 175, 175, 0.02) 50%, rgba(59, 130, 246, 0.02) 100%);
 }
 
 .features-grid {
@@ -404,7 +404,7 @@ section {
 }
 
 .commands {
-    background: var(--dark-bg);
+    background: linear-gradient(180deg, rgba(59, 130, 246, 0.02) 0%, rgba(139, 92, 246, 0.02) 100%);
 }
 
 .command-categories {
@@ -488,7 +488,7 @@ section {
 }
 
 .launcher {
-    background: linear-gradient(180deg, var(--dark-bg) 0%, rgba(59, 130, 246, 0.05) 100%);
+    background: linear-gradient(180deg, rgba(139, 92, 246, 0.02) 0%, rgba(59, 130, 246, 0.03) 100%);
 }
 
 .launcher-content {
@@ -611,7 +611,7 @@ section {
 }
 
 .setup {
-    background: var(--dark-bg);
+    background: linear-gradient(180deg, rgba(59, 130, 246, 0.03) 0%, rgba(139, 92, 246, 0.015) 100%);
 }
 
 .setup-steps {
@@ -726,7 +726,7 @@ section {
 }
 
 .connect {
-    background: linear-gradient(180deg, var(--dark-bg) 0%, rgba(139, 92, 246, 0.03) 100%);
+    background: linear-gradient(180deg, rgba(139, 92, 246, 0.015) 0%, var(--dark-bg) 100%);
 }
 
 .social-grid {
