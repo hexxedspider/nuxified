@@ -10,21 +10,31 @@ import datetime
 import psutil
 import platform
 import webbrowser
+import shutil
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 
 class BotLauncher(ctk.CTk):
     def __init__(self):
+        self.env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+        self.envv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".envv")
+
+        if not os.path.exists(self.env_path) and os.path.exists(self.envv_path):
+            try:
+                shutil.copy(self.envv_path, self.env_path)
+                print(f"created .env from .envv")
+            except Exception as e:
+                print(f"error creating .env: {e}")
+
         super().__init__()
 
-        self.title("Nuxified Launcher")
+        self.title("Nuxified x Nukumoxy444: Nuxified Vision")
         self.geometry("900x600")
         self.resizable(True, True)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        self.env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
         load_dotenv(self.env_path)
 
         self.create_sidebar()

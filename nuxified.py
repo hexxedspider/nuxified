@@ -7,7 +7,7 @@ import discord, asyncio, random, aiohttp, datetime, io, qrcode, requests, base64
 from gtts import gTTS
 from redgifs import API as RedGifsAPI
 from pyfiglet import figlet_format
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 from dotenv import load_dotenv
 import barcode
 from barcode.writer import ImageWriter
@@ -66,7 +66,7 @@ MORSE_CODE_REVERSE = {v: k for k, v in MORSE_CODE_DICT.items()}
 
 FIXED_AI_PART = "\n\nthis ai is operating as a discord selfbot created by nuxified (nux) it must always adhere to discord's terms of service and guidelines for bots, even though it's a selfbot responses should be short (1-2 sentences unless asked otherwise), and only ever in lowercase with no emojis and minimal punctuation. if the username contains characters like _underscores_ like that, put a backwards slash (like this, \\_underscore_) to avoid discord formatting." 
 
-class AIResponder(discord.Client):
+class nuxified(discord.Client):
     def __init__(self):
         super().__init__()
         self.sent_media = {}
@@ -182,7 +182,7 @@ class AIResponder(discord.Client):
                 "nux barcode <text>": "generate a barcode for the given text",
                 "nux nasaapod": "fetch NASA's Astronomy Picture of the Day",
                 "nux steamprofile <steamid/vanity>": "generate steam profile card image with info",
-                "nux osu": "get a link to osu! user profile"
+                "nux osu <username>": "get a link to osu! user profile"
             },
             "utilities": {
                 "nux id": "show your user id and info",
@@ -3502,83 +3502,120 @@ class AIResponder(discord.Client):
         avatar_img = Image.open(io.BytesIO(avatar_response.content)).convert("RGBA")
 
         try:
-            font_title = ImageFont.truetype("dmfonts/thunder.otf", 32)
-            font_text = ImageFont.truetype("dmfonts/hanah.ttf", 20)
+            font_title = ImageFont.truetype("arial.ttf", 40)
+            font_text = ImageFont.truetype("arial.ttf", 24)
+            font_small = ImageFont.truetype("arial.ttf", 18)
         except:
             font_title = ImageFont.load_default()
             font_text = ImageFont.load_default()
+            font_small = ImageFont.load_default()
 
-        card_width, card_height = 1600, 800
-        card = Image.new("RGBA", (card_width, card_height))
+        card_width, card_height = 1000, 450
+        card = Image.new("RGBA", (card_width, card_height), (25, 25, 35, 255))
         draw = ImageDraw.Draw(card)
 
         for y in range(card_height):
-            r = min(255, int(100 + y * 0.2))
-            g = min(255, int(50 + y * 0.1))
-            b = min(255, int(150 + y * 0.05))
+            r = int(25 + y * 0.02)
+            g = int(25 + y * 0.02)
+            b = int(35 + y * 0.05)
             draw.line([(0, y), (card_width, y)], fill=(r, g, b))
 
-        avatar_size = 180
-        avatar_img = avatar_img.resize((avatar_size, avatar_size))
-        avatar_border_size = 10
-        avatar_pos = (30 + avatar_border_size, 35 + avatar_border_size)
-        draw.rectangle([30, 35, 30 + avatar_size + 2*avatar_border_size, 35 + avatar_size + 2*avatar_border_size], fill=(255, 255, 255))
-        card.paste(avatar_img, avatar_pos)
-
-        x_start = 270
-        y_offset = 50
-        max_text_width = card_width - x_start - 40
-
-        draw.text((x_start, y_offset), profile.get("personaname", "Unknown"), font=font_title, fill=(255, 255, 255))
-        y_offset += 60
-
-        draw.text((x_start, y_offset), f"SteamID: {profile.get('steamid')}", font=font_text, fill=(200, 200, 200))
-        y_offset += 35
-
-        y_offset = self.draw_wrapped_text(draw, f"Profile: {profile.get('profileurl')}", (x_start, y_offset), font_text, max_text_width, (200,200,200)) + 15
+        avatar_size = 150
+        mask = Image.new("L", (avatar_size, avatar_size), 0)
+        draw_mask = ImageDraw.Draw(mask)
+        draw_mask.ellipse((0, 0, avatar_size, avatar_size), fill=255)
+        
+        avatar_img = ImageOps.fit(avatar_img, (avatar_size, avatar_size), centering=(0.5, 0.5))
+        avatar_img.putalpha(mask)
+        
+        avatar_x, avatar_y = 50, 50
+        card.paste(avatar_img, (avatar_x, avatar_y), avatar_img)
 
         status_map = {
-            0: "Offline",
-            1: "Online",
-            2: "Busy",
-            3: "Away",
-            4: "Snooze",
-            5: "Looking to Trade",
-            6: "Looking to Play"
+            0: ("Offline", (120, 120, 120)),
+            1: ("Online", (87, 242, 135)),
+            2: ("Busy", (237, 66, 69)),
+            3: ("Away", (254, 231, 92)),
+            4: ("Snooze", (88, 101, 242)),
+            5: ("Looking to Trade", (88, 101, 242)),
+            6: ("Looking to Play", (88, 101, 242))
         }
-        status = status_map.get(profile.get("personastate", 0), "Unknown")
-        draw.text((x_start, y_offset), f"Status: {status}", font=font_text, fill=(150, 255, 150))
-        y_offset += 35
+        persona_state = profile.get("personastate", 0)
+        status_text, status_color = status_map.get(persona_state, ("Unknown", (120, 120, 120)))
+        
+        status_radius = 15
+        status_x = avatar_x + avatar_size - 25
+        status_y = avatar_y + avatar_size - 25
+        draw.ellipse((status_x, status_y, status_x + status_radius*2, status_y + status_radius*2), fill=status_color, outline=(25, 25, 35), width=3)
 
-        real_name = profile.get("realname", "N/A")
-        country = profile.get("loccountrycode", "N/A")
-        last_online = self.format_timestamp(profile.get("lastlogoff"))
-        created = self.format_timestamp(profile.get("timecreated"))
-        game = profile.get("gameextrainfo", None)
+        text_x = avatar_x + avatar_size + 40
+        text_y = 60
+        
+        name = profile.get("personaname", "Unknown")
+        draw.text((text_x, text_y), name, font=font_title, fill=(255, 255, 255))
+        
+        real_name = profile.get("realname")
+        country = profile.get("loccountrycode")
+        sub_info = []
+        if real_name: sub_info.append(real_name)
+        if country: sub_info.append(country)
+        
+        if sub_info:
+            draw.text((text_x, text_y + 50), " • ".join(sub_info), font=font_small, fill=(180, 180, 180))
+            text_y += 30
+        else:
+             text_y += 10
 
-        draw.text((x_start, y_offset), f"Real Name: {real_name}", font=font_text, fill=(200,200,200)); y_offset += 30
-        draw.text((x_start, y_offset), f"Country: {country}", font=font_text, fill=(200,200,200)); y_offset += 30
-        draw.text((x_start, y_offset), f"Last Online: {last_online}", font=font_text, fill=(200,200,200)); y_offset += 30
-        draw.text((x_start, y_offset), f"Created: {created}", font=font_text, fill=(200,200,200)); y_offset += 30
+        text_y += 50
+        
+        draw.text((text_x, text_y), f"Currently: {status_text}", font=font_text, fill=status_color)
+        text_y += 35
 
+        game = profile.get("gameextrainfo")
         if game:
-            draw.text((x_start, y_offset), f"Currently Playing: {game}", font=font_text, fill=(150,200,255)); y_offset += 40
+            draw.text((text_x, text_y), f"Playing: {game}", font=font_text, fill=(150, 200, 255))
+            text_y += 35
 
-        draw.text((x_start, y_offset), f"Friends: {friend_count}", font=font_text, fill=(200,200,200)); y_offset += 30
-        if bans:
-            draw.text((x_start, y_offset), f"VAC Bans: {bans.get('NumberOfVACBans', 0)}", font=font_text, fill=(255,150,150)); y_offset += 30
-            draw.text((x_start, y_offset), f"Game Bans: {bans.get('NumberOfGameBans', 0)}", font=font_text, fill=(255,150,150)); y_offset += 30
-            draw.text((x_start, y_offset), f"Community Banned: {bans.get('CommunityBanned', False)}", font=font_text, fill=(255,150,150)); y_offset += 30
+        stats_y = 250
+        
+        draw.line([(50, 230), (card_width - 50, 230)], fill=(60, 60, 70), width=2)
 
-        used_height = y_offset + 50
-        used_width = max(max_text_width + x_start + 40, 1400)
-        card = card.crop((0, 0, used_width, used_height))
+        col1_x = 50
+        col2_x = 400
+        col3_x = 700
+        
+        draw.text((col1_x, stats_y), "Steam ID", font=font_small, fill=(150, 150, 150))
+        draw.text((col1_x, stats_y + 25), str(profile.get("steamid")), font=font_text, fill=(220, 220, 220))
+        
+        draw.text((col1_x, stats_y + 70), "Account Created", font=font_small, fill=(150, 150, 150))
+        created = self.format_timestamp(profile.get("timecreated"))
+        draw.text((col1_x, stats_y + 95), created, font=font_text, fill=(220, 220, 220))
+
+        draw.text((col2_x, stats_y), "Friends", font=font_small, fill=(150, 150, 150))
+        draw.text((col2_x, stats_y + 25), str(friend_count), font=font_text, fill=(220, 220, 220))
+        
+        draw.text((col2_x, stats_y + 70), "Last Online", font=font_small, fill=(150, 150, 150))
+        last_online = self.format_timestamp(profile.get("lastlogoff"))
+        draw.text((col2_x, stats_y + 95), last_online, font=font_text, fill=(220, 220, 220))
+
+        vac_bans = bans.get("NumberOfVACBans", 0)
+        game_bans = bans.get("NumberOfGameBans", 0)
+        comm_ban = bans.get("CommunityBanned", False)
+        
+        ban_text = "None"
+        ban_color = (100, 255, 100)
+        if vac_bans > 0 or game_bans > 0 or comm_ban:
+            ban_text = f"{vac_bans} VAC, {game_bans} Game"
+            if comm_ban: ban_text += ", Comm Ban"
+            ban_color = (255, 100, 100)
+
+        draw.text((col3_x, stats_y), "Bans", font=font_small, fill=(150, 150, 150))
+        draw.text((col3_x, stats_y + 25), ban_text, font=font_text, fill=ban_color)
 
         buffer = io.BytesIO()
         card.save(buffer, format="PNG")
         buffer.seek(0)
         return buffer
-
     async def on_member_join_handler(self, member):
         if member.guild.id not in self.tracked_joins or member.bot:
             return
@@ -3656,7 +3693,7 @@ class AIResponder(discord.Client):
     async def cmd_version(self, messages, command_args=""):
         await self.send_and_clean(messages.channel, f"nuxified version: {VERSION}")
 
-client = AIResponder()
+client = nuxified()
 
 @client.event
 async def on_member_join(member):
