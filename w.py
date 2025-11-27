@@ -21,8 +21,8 @@ class RestartHandler(FileSystemEventHandler):
         self.processes[script] = subprocess.Popen([sys.executable, script])
 
     def on_modified(self, event):
-        for script in self.scripts:
-            if event.src_path.endswith(script):
+        if event.src_path.endswith('.py'):
+            for script in self.scripts:
                 self.start_bot(script)
 
 if __name__ == "__main__":
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     bot_scripts = ["nuxified.py"]
     event_handler = RestartHandler(bot_scripts)
     observer = Observer()
-    observer.schedule(event_handler, path=path, recursive=False)
+    observer.schedule(event_handler, path=path, recursive=True)
     observer.start()
 
     try:

@@ -11,9 +11,85 @@ import psutil
 import platform
 import webbrowser
 import shutil
+from PIL import Image, ImageDraw, ImageFont
+import glob
+import io
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
+
+class ObfuscatedEntry(ctk.CTkEntry):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+        self.real_value = ""
+        self.show_char = "*"
+        self.timer = None
+        self.is_obfuscated = True
+        
+        self.bind("<Key>", self.on_key)
+        self.bind("<BackSpace>", self.on_backspace)
+        
+    def on_key(self, event):
+        if not self.is_obfuscated:
+            return
+            
+        if event.char and event.char.isprintable():
+            self.real_value += event.char
+            self.configure(show="")
+            self.delete(0, "end")
+            self.insert(0, self.get_masked_display() + event.char)
+            
+            if self.timer:
+                self.after_cancel(self.timer)
+            self.timer = self.after(3000, self.mask_all)
+            
+            return "break"
+            
+    def on_backspace(self, event):
+        if not self.is_obfuscated:
+            return
+            
+        if self.real_value:
+            self.real_value = self.real_value[:-1]
+            self.mask_all()
+        return "break"
+        
+    def mask_all(self):
+        if not self.is_obfuscated:
+            return
+            
+        self.configure(show=self.show_char)
+        self.delete(0, "end")
+        self.insert(0, self.real_value)
+        
+    def get_real(self):
+        if not self.is_obfuscated:
+            return self.get()
+        return self.real_value
+        
+    def set_real(self, value):
+        self.real_value = value
+        if self.is_obfuscated:
+            self.mask_all()
+        else:
+            self.delete(0, "end")
+            self.insert(0, value)
+
+    def get_masked_display(self):
+        return self.show_char * len(self.real_value)
+
+    def set_obfuscation_state(self, enabled):
+        if self.is_obfuscated == enabled:
+            return
+            
+        self.is_obfuscated = enabled
+        if enabled:
+            self.real_value = self.get()
+            self.mask_all()
+        else:
+            self.configure(show="")
+            self.delete(0, "end")
+            self.insert(0, self.real_value)
 
 class BotLauncher(ctk.CTk):
     def __init__(self):
@@ -39,6 +115,7 @@ class BotLauncher(ctk.CTk):
 
         self.create_sidebar()
         self.create_main_area()
+        self.viewing_logs = False
         self.show_dashboard()
 
     def create_sidebar(self):
@@ -55,11 +132,17 @@ class BotLauncher(ctk.CTk):
         self.sidebar_button_2 = ctk.CTkButton(self.sidebar_frame, text="Settings", command=self.show_settings, fg_color="transparent", border_width=2, text_color=("gray10", "#DCE4EE"))
         self.sidebar_button_2.grid(row=2, column=0, padx=20, pady=10)
 
+        self.sidebar_button_logs = ctk.CTkButton(self.sidebar_frame, text="Live Logs", command=self.show_logs, fg_color="transparent", border_width=2, text_color=("gray10", "#DCE4EE"))
+        self.sidebar_button_logs.grid(row=3, column=0, padx=20, pady=10)
+
+        self.sidebar_button_terminal = ctk.CTkButton(self.sidebar_frame, text="Terminal", command=self.show_terminal, fg_color="transparent", border_width=2, text_color=("gray10", "#DCE4EE"))
+        self.sidebar_button_terminal.grid(row=4, column=0, padx=20, pady=10)
+
         self.sidebar_button_info = ctk.CTkButton(self.sidebar_frame, text="Info", command=self.open_wiki, fg_color="transparent", border_width=2, text_color=("gray10", "#DCE4EE"))
-        self.sidebar_button_info.grid(row=4, column=0, padx=20, pady=10, sticky="s")
+        self.sidebar_button_info.grid(row=6, column=0, padx=20, pady=10, sticky="s")
         
         self.status_label = ctk.CTkLabel(self.sidebar_frame, text="Status: Ready", text_color="gray")
-        self.status_label.grid(row=5, column=0, padx=20, pady=20)
+        self.status_label.grid(row=7, column=0, padx=20, pady=20)
 
     def open_wiki(self):
         webbrowser.open("https://github.com/hexxedspider/nuxified/wiki")
@@ -69,6 +152,7 @@ class BotLauncher(ctk.CTk):
         self.main_frame.grid(row=0, column=1, sticky="nsew", padx=20, pady=20)
 
     def clear_main_area(self):
+        self.viewing_logs = False
         for widget in self.main_frame.winfo_children():
             widget.destroy()
 
@@ -199,6 +283,9 @@ class BotLauncher(ctk.CTk):
             ("Spotify Client Secret", "spotify_client_secret"),
             ("Xbox API Key", "XBOX_API_KEY")
         ])
+        
+        self.obfuscation_var = ctk.BooleanVar(value=True)
+        ctk.CTkCheckBox(scroll_frame, text="Token Obfuscation", variable=self.obfuscation_var, command=self.toggle_obfuscation).pack(anchor="w", padx=20, pady=10)
 
         save_btn = ctk.CTkButton(self.main_frame, text="Save Changes", command=self.save_config, height=40, fg_color="#333333", hover_color="#555555")
         save_btn.pack(pady=20, fill="x")
@@ -216,16 +303,31 @@ class BotLauncher(ctk.CTk):
             field_frame.pack(fill="x", padx=10, pady=5)
             
             ctk.CTkLabel(field_frame, text=label_text, width=120, anchor="w").pack(side="left")
-            entry = ctk.CTkEntry(field_frame, placeholder_text=f"Enter {env_key}...")
+            
+            # Obfuscate everything except "allowed" (Allowed User IDs)
+            if env_key != "allowed":
+                entry = ObfuscatedEntry(field_frame, placeholder_text=f"Enter {env_key}...")
+            else:
+                entry = ctk.CTkEntry(field_frame, placeholder_text=f"Enter {env_key}...")
+                
             entry.pack(side="left", fill="x", expand=True)
             
             self.entries[env_key] = entry
 
+    def toggle_obfuscation(self):
+        enabled = self.obfuscation_var.get()
+        for entry in self.entries.values():
+            if isinstance(entry, ObfuscatedEntry):
+                entry.set_obfuscation_state(enabled)
+
     def load_current_values(self):
         for key, entry in self.entries.items():
             value = os.getenv(key, "")
-            entry.delete(0, "end")
-            entry.insert(0, value)
+            if isinstance(entry, ObfuscatedEntry):
+                entry.set_real(value)
+            else:
+                entry.delete(0, "end")
+                entry.insert(0, value)
 
     def save_config(self):
         try:
@@ -234,7 +336,10 @@ class BotLauncher(ctk.CTk):
                     pass
 
             for key, entry in self.entries.items():
-                value = entry.get().strip()
+                if isinstance(entry, ObfuscatedEntry):
+                    value = entry.get_real().strip()
+                else:
+                    value = entry.get().strip()
                 os.environ[key] = value
                 set_key(self.env_path, key, value)
             
@@ -260,6 +365,107 @@ class BotLauncher(ctk.CTk):
         except Exception as e:
             self.status_label.configure(text=f"Status: Error Starting", text_color="#e74c3c")
             print(e)
+
+    def show_logs(self):
+        self.clear_main_area()
+        
+        title = ctk.CTkLabel(self.main_frame, text="Live Logs", font=ctk.CTkFont(size=24, weight="bold"))
+        title.pack(anchor="w", pady=(0, 20))
+        
+        self.log_textbox = ctk.CTkTextbox(self.main_frame, width=800, height=400)
+        self.log_textbox.pack(fill="both", expand=True)
+        self.log_textbox.configure(state="disabled")
+        
+        self.viewing_logs = True
+        threading.Thread(target=self.update_logs, daemon=True).start()
+
+    def update_logs(self):
+        last_size = 0
+        current_log_file = None
+        
+        while self.viewing_logs:
+            try:
+                if not self.log_textbox.winfo_exists():
+                    break
+                log_files = glob.glob("logs/logs_*.txt")
+                if not log_files:
+                    time.sleep(2)
+                    continue
+                    
+                newest_file = max(log_files, key=os.path.getctime)
+                
+                if newest_file != current_log_file:
+                    current_log_file = newest_file
+                    last_size = 0
+                    self.log_textbox.configure(state="normal")
+                    self.log_textbox.delete("1.0", "end")
+                    self.log_textbox.configure(state="disabled")
+                
+                current_size = os.path.getsize(current_log_file)
+                if current_size > last_size:
+                    with open(current_log_file, "r", encoding="utf-8") as f:
+                        f.seek(last_size)
+                        new_content = f.read()
+                        last_size = current_size
+                        
+                        self.log_textbox.configure(state="normal")
+                        self.log_textbox.insert("end", new_content)
+                        self.log_textbox.see("end")
+                        self.log_textbox.configure(state="disabled")
+                
+                time.sleep(1)
+            except Exception as e:
+                print(f"Error updating logs: {e}")
+                time.sleep(2)
+
+    def show_terminal(self):
+        self.clear_main_area()
+        
+        title = ctk.CTkLabel(self.main_frame, text="Terminal", font=ctk.CTkFont(size=24, weight="bold"))
+        title.pack(anchor="w", pady=(0, 20))
+        
+        self.terminal_output = ctk.CTkTextbox(self.main_frame, width=800, height=350)
+        self.terminal_output.pack(fill="both", expand=True, pady=(0, 10))
+        self.terminal_output.configure(state="disabled")
+        
+        input_frame = ctk.CTkFrame(self.main_frame)
+        input_frame.pack(fill="x")
+        
+        ctk.CTkLabel(input_frame, text=">>>").pack(side="left", padx=5)
+        
+        self.terminal_input = ctk.CTkEntry(input_frame)
+        self.terminal_input.pack(side="left", fill="x", expand=True, padx=5)
+        self.terminal_input.bind("<Return>", self.execute_terminal_command)
+        
+        run_btn = ctk.CTkButton(input_frame, text="Run", width=60, command=self.execute_terminal_command)
+        run_btn.pack(side="right", padx=5)
+
+    def execute_terminal_command(self, event=None):
+        command = self.terminal_input.get()
+        self.terminal_input.delete(0, "end")
+        
+        self.terminal_output.configure(state="normal")
+        self.terminal_output.insert("end", f">>> {command}\n")
+        
+        try:
+            old_stdout = sys.stdout
+            redirected_output = sys.stdout = io.StringIO()
+            
+            try:
+                exec(command, globals())
+            except Exception as e:
+                print(e)
+                
+            sys.stdout = old_stdout
+            output = redirected_output.getvalue()
+            
+            if output:
+                self.terminal_output.insert("end", output + "\n")
+        except Exception as e:
+            self.terminal_output.insert("end", f"Error: {e}\n")
+            
+        self.terminal_output.see("end")
+        self.terminal_output.configure(state="disabled")
 
 if __name__ == "__main__":
     app = BotLauncher()

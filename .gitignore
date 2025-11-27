@@ -11,5 +11,6 @@ config.pkl
 **/other_accounts
 
 ideas
+slowburn_stories/
 
 **/docs/update_stats.py
