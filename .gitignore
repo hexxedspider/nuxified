@@ -1,15 +1,21 @@
 **/downloads
+# my python envs, one is 3.11 (main) and the other is 3.14
 **/env
 **/314
+
+# renamed from .envv
 .env
 
 ai_config.pkl
 config.pkl
 
+# watch command logs
 **/logs
+
 **/__pycache__
 **/other_accounts
 
+todo
 ideas
 slowburn_stories/
 

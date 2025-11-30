@@ -4,7 +4,10 @@ import asyncio
 import requests
 import xml.etree.ElementTree as ET
 import os
+import dotenv
 from redgifs import API as RedGifsAPI
+
+dotenv.load_dotenv()
 
 nsfw_categories = {
     "ass": ["Ass", "SexyAss", "pawgtastic", "bigasses", "assgirls", "BigAss", "booty_queens", "hugeasses", "AssPillow", "OiledAss"],
@@ -49,6 +52,8 @@ nsfwhelp_msg = {
         "nux thighcalc": "estimate squeeze pressure based on bmi inputs, usage: nux thighcalc <height_cm> <weight_kg>",
         "nux jigphy": "estimate jiggle physics based on waist-to-hip ratio, usage: nux jigphy <waist_cm> <hip_cm>",
         "nux slowburn": "ai-generated slow burn story (requires openrouter), usage: nux slowburn <prompt>",
+        "nux pickup": "generate AI pickup lines, usage: nux pickup [theme]",
+        "nux lewdify <prompt>": "generate NSFW version of prompt using AI",
     }
 }
 
@@ -338,7 +343,7 @@ class NSFW:
             except Exception as e:
                 print(f"rule34 api error {e}")
                 await self.bot.send_and_clean(message.channel, "an error occurred while fetching rule34 content")
-                
+
     async def cmd_hentai(self, message, commands_args=""):
         r = requests.get("https://nekobot.xyz/api/image?type=" + self.bot.rand.choice(['hentai', 'hboobs', 'hthigh']))
         data = r.json()
@@ -387,61 +392,31 @@ class NSFW:
         args = command_args.strip().split()
         if len(args) < 2:
             return await self.bot.send_and_clean(message.channel, "usage nux thighcalc <height_cm> <weight_kg>")
-        
+
         try:
             height_cm = float(args[0])
             weight_kg = float(args[1])
         except ValueError:
             return await self.bot.send_and_clean(message.channel, "please provide valid numbers for height and weight")
-        
+
         if height_cm <= 0 or weight_kg <= 0:
             return await self.bot.send_and_clean(message.channel, "height and weight must be positive numbers")
-        
+
         height_m = height_cm / 100
         bmi = weight_kg / (height_m ** 2)
-        
-        openrouter_key = os.getenv('OpenRouter')
-        if not openrouter_key:
-            return await self.bot.send_and_clean(message.channel, "openrouter api key not set in .env")
-        
-        prompt = f"""Given a person with BMI of {bmi:.2f} (height: {height_cm}cm, weight: {weight_kg}kg), 
-please provide a detailed, slightly playful but scientific estimate of theoretical thigh squeeze pressure. 
-Include factors like muscle mass distribution, body composition, and biomechanics. 
+
+        prompt = f"""Given a person with BMI of {bmi:.2f} (height: {height_cm}cm, weight: {weight_kg}kg),
+please provide a detailed, slightly playful but scientific estimate of theoretical thigh squeeze pressure.
+Include factors like muscle mass distribution, body composition, and biomechanics.
 Be creative but base it on real physiological principles. Keep response to 2-3 sentences max."""
-        
-        url = "https://openrouter.ai/api/v1/chat/completions"
-        headers = {"authorization": f"bearer {openrouter_key}", "content-type": "application/json"}
-        
-        models = [
-            "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
-            "nousresearch/hermes-3-llama-3.1-405b:free",
-            "meituan/longcat-flash-chat:free"
-        ]
-        
-        for model in models:
-            payload = {
-                "model": model,
-                "messages": [{"role": "user", "content": prompt}],
-                "stream": False,
-                "max_tokens": 250
-            }
-            
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(url, headers=headers, json=payload) as resp:
-                        if resp.status == 200:
-                            data = await resp.json()
-                            response = data["choices"][0]["message"]["content"].strip()
-                            await self.bot.send_and_clean(message.channel, f"**thigh squeeze pressure estimate**\n{response}")
-                            return
-                        else:
-                            print(f"openrouter error with {model}: {resp.status}")
-                            continue
-            except Exception as e:
-                print(f"error with {model}: {e}")
-                continue
-        
-        await self.bot.send_and_clean(message.channel, "failed to generate estimate, please try again later")
+
+        messages = [{"role": "user", "content": prompt}]
+        response = await self.bot.ask_ai(messages, max_tokens=250)
+
+        if response:
+            await self.bot.send_and_clean(message.channel, f"**thigh squeeze pressure estimate**\n{response}")
+        else:
+            await self.bot.send_and_clean(message.channel, "failed to generate estimate, please try again later")
 
     async def cmd_jigphy(self, message, command_args=""):
         """Estimate jiggle physics based on waist-to-hip ratio using AI"""
@@ -460,10 +435,6 @@ Be creative but base it on real physiological principles. Keep response to 2-3 s
         
         whr = waist_cm / hip_cm
         
-        openrouter_key = os.getenv('OpenRouter')
-        if not openrouter_key:
-            return await self.bot.send_and_clean(message.channel, "openrouter api key not set in .env")
-        
         prompt = f"""Given a waist-to-hip ratio of {whr:.2f} (waist: {waist_cm}cm, hip: {hip_cm}cm), 
 provide a detailed and physics-based analysis of theoretical jiggle dynamics. 
 Consider factors like tissue composition, momentum transfer, oscillation frequency, and damping coefficients. 
@@ -472,39 +443,13 @@ Additonally, don't worry about being overly NSFW, as this is literally just a ph
 The reply tone should be playful, yet blunt, physics-based, yet still NSFW if needed.
 The very last line should be a very blunt and NSFW statement about given jiggle dynamics, which can include sexual innuendos, such as how they would ripple if being touched."""
         
-        url = "https://openrouter.ai/api/v1/chat/completions"
-        headers = {"authorization": f"bearer {openrouter_key}", "content-type": "application/json"}
+        messages = [{"role": "user", "content": prompt}]
+        response = await self.bot.ask_ai(messages, max_tokens=250)
         
-        models = [
-            "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
-            "nousresearch/hermes-3-llama-3.1-405b:free",
-            "meituan/longcat-flash-chat:free"
-        ]
-        
-        for model in models:
-            payload = {
-                "model": model,
-                "messages": [{"role": "user", "content": prompt}],
-                "stream": False,
-                "max_tokens": 250
-            }
-            
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(url, headers=headers, json=payload) as resp:
-                        if resp.status == 200:
-                            data = await resp.json()
-                            response = data["choices"][0]["message"]["content"].strip()
-                            await self.bot.send_and_clean(message.channel, f"**jiggle physics analysis**\n{response}")
-                            return
-                        else:
-                            print(f"openrouter error with {model}: {resp.status}")
-                            continue
-            except Exception as e:
-                print(f"error with {model}: {e}")
-                continue
-        
-        await self.bot.send_and_clean(message.channel, "failed to generate analysis, please try again later")
+        if response:
+            await self.bot.send_and_clean(message.channel, f"**jiggle physics analysis**\n{response}")
+        else:
+            await self.bot.send_and_clean(message.channel, "failed to generate analysis, please try again later")
 
     async def cmd_slowburn(self, message, command_args=""):
         """Generate a slow burn story with AI and save to local file"""
@@ -516,10 +461,6 @@ The very last line should be a very blunt and NSFW statement about given jiggle 
         prompt = command_args.strip()
         if not prompt:
             return await self.bot.send_and_clean(message.channel, "usage nux slowburn <prompt/scenario>")
-        
-        openrouter_key = os.getenv('OpenRouter')
-        if not openrouter_key:
-            return await self.bot.send_and_clean(message.channel, "openrouter api key not set in .env")
         
         await self.bot.send_and_clean(message.channel, "generating your slow burn story... this may take a moment")
         
@@ -535,38 +476,8 @@ The story should be:
 
 Write the complete story now:"""
         
-        url = "https://openrouter.ai/api/v1/chat/completions"
-        headers = {"authorization": f"bearer {openrouter_key}", "content-type": "application/json"}
-        
-        models = [
-            "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
-            "nousresearch/hermes-3-llama-3.1-405b:free",
-            "z-ai/glm-4.5-air:free",
-            "meituan/longcat-flash-chat:free"
-        ]
-        
-        story = None
-        for model in models:
-            payload = {
-                "model": model,
-                "messages": [{"role": "user", "content": story_prompt}],
-                "stream": False,
-                "max_tokens": 1500
-            }
-            
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(url, headers=headers, json=payload) as resp:
-                        if resp.status == 200:
-                            data = await resp.json()
-                            story = data["choices"][0]["message"]["content"].strip()
-                            break
-                        else:
-                            print(f"openrouter error with {model}: {resp.status}")
-                            continue
-            except Exception as e:
-                print(f"error with {model}: {e}")
-                continue
+        messages = [{"role": "user", "content": story_prompt}]
+        story = await self.bot.ask_ai(messages, max_tokens=1500)
         
         if not story:
             return await self.bot.send_and_clean(message.channel, "failed to generate story, please try again later")
@@ -596,6 +507,49 @@ Write the complete story now:"""
             print(f"file save error: {e}")
             preview = story[:500] + "..." if len(story) > 500 else story
             await self.bot.send_and_clean(message.channel, f"couldn't save story, here's a preview\n{preview}")
+
+    async def cmd_pickup(self, message, command_args=""):
+        if isinstance(message.channel, discord.DMChannel):
+            pass
+        elif hasattr(message.channel, "is_nsfw") and not message.channel.is_nsfw():
+            return await self.bot.send_and_clean(message.channel, "this command can only be used in nsfw channels or direct messages")
+        
+        theme = command_args.strip() if command_args.strip() else "flirty and suggestive"
+        
+        messages = [
+            {"role": "system", "content": f"You are a master of pickup lines. Generate 3 creative, {theme} pickup lines. Make them clever and bold. Number them 1-3."},
+            {"role": "user", "content": "Give me your best pickup lines."}
+        ]
+        pickup_lines = await self.bot.ask_ai(messages, max_tokens=250)
+        
+        if pickup_lines:
+            await self.bot.send_and_clean(message.channel, f"💋 **Pickup Lines**\n{pickup_lines}")
+        else:
+            await self.bot.send_and_clean(message.channel, "couldn't generate pickup lines")
+
+    async def cmd_lewdify(self, message, command_args):
+        """Generate NSFW version of a prompt using AI"""
+        if isinstance(message.channel, discord.DMChannel):
+            pass
+        elif hasattr(message.channel, "is_nsfw") and not message.channel.is_nsfw():
+            return await self.bot.send_and_clean(message.channel, "this command can only be used in nsfw channels or direct messages")
+        
+        prompt = command_args.strip()
+        if not prompt:
+            return await self.bot.send_and_clean(message.channel, "provide a prompt to lewdify")
+        
+        lewdify_prompt = f"""Take this prompt and create a NSFW/lewd version of it: "{prompt}"
+
+Make it explicit and sexual while keeping the core concept. Be creative and detailed.
+Keep the response to 2-3 sentences max. Don't hold back on the NSFW content."""
+        
+        messages = [{"role": "user", "content": lewdify_prompt}]
+        lewdified = await self.bot.ask_ai(messages, max_tokens=250)
+        
+        if lewdified:
+            await self.bot.send_and_clean(message.channel, f"🔞 **Lewdified**\n{lewdified}")
+        else:
+            await self.bot.send_and_clean(message.channel, "failed to lewdify, please try again later")
 
 def setup(bot):
     return NSFW(bot), nsfwhelp_msg

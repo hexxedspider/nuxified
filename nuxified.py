@@ -110,6 +110,13 @@ class nuxified(discord.Client):
         self.cdm_tasks = {}
         self.api = RedGifsAPI()
         self.af_api = "https://api.alexflipnote.dev"
+        self.ai_models = [
+            "z-ai/glm-4.5-air:free",
+            "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
+            "meituan/longcat-flash-chat:free",
+            "nousresearch/hermes-3-llama-3.1-405b:free",
+            "arliai/qwq-32b-arliai-rpr-v1:free"
+        ]
         self.commands = {}
 
         self.help_categories = {}
@@ -130,9 +137,21 @@ class nuxified(discord.Client):
                 for category, cmds in help_dict.items():
                     for cmd_trigger in cmds.keys():
                         parts = cmd_trigger.split()
-                        method_name = 'cmd_' + '_'.join(parts[1:]) if len(parts) > 1 else 'cmd_' + cmd_trigger
-                        if hasattr(curse_instance, method_name):
-                            self.commands[cmd_trigger] = getattr(curse_instance, method_name)
+                        relevant_parts = parts[1:] if len(parts) > 1 else parts
+                        valid_method_name = None
+
+                        for i in range(len(relevant_parts), 0, -1):
+                            candidate = 'cmd_' + '_'.join(relevant_parts[:i])
+                            if hasattr(curse_instance, candidate):
+                                valid_method_name = candidate
+                                # Reconstruct the clean trigger (e.g., "nux watch")
+                                # If parts had a prefix (len > len(relevant)), include it.
+                                prefix = parts[:len(parts)-len(relevant_parts)]
+                                clean_trigger = ' '.join(prefix + relevant_parts[:i])
+                                break
+                        
+                        if valid_method_name:
+                            self.commands[clean_trigger] = getattr(curse_instance, valid_method_name)
         self.autoowod_task = None
         self.autoowod_time = None
         self.autoowod_channel = None
@@ -173,10 +192,10 @@ class nuxified(discord.Client):
             except Exception:
                 pass
     async def on_message(self, message):
+        await self.log_message(message)
+
         if message.author.bot:
             return
-
-        await self.log_message(message)
 
         if message.author.id != self.owner_id and message.author.id not in ALLOWED_USER_IDS:
             return
@@ -302,12 +321,40 @@ class nuxified(discord.Client):
                     await self.send_and_clean(message.channel, "timed out waiting for personality")
                 return
 
-    async def ask_openrouter(self, user_id, username, user_input):
+    async def handle_message_delete(self, message):
+        await self.log_message(message, state="DEL")
+
+    async def ask_ai(self, messages, max_tokens=350):
         openrouter_key = os.getenv('OpenRouter')
         if not openrouter_key:
             return "openrouter token not set"
+        
         url = "https://openrouter.ai/api/v1/chat/completions"
         headers = {"authorization": f"bearer {openrouter_key}", "content-type": "application/json"}
+        
+        for model in self.ai_models:
+            payload = {
+                "model": model,
+                "messages": messages,
+                "stream": False,
+                "max_tokens": max_tokens
+            }
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, headers=headers, json=payload) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            return data["choices"][0]["message"]["content"].strip()
+                        else:
+                            print(f"openrouter error with {model} {resp.status}")
+                            continue
+            except Exception as e:
+                print(f"error with {model}: {e}")
+                continue
+        
+        return None
+
+    async def ask_openrouter(self, user_id, username, user_input):
         personality = self.ai_config.get('personality', FIXED_AI_PART)
         if user_id not in self.conversations:
             self.conversations[user_id] = [{"role": "system", "content": personality}]
@@ -315,40 +362,16 @@ class nuxified(discord.Client):
         self.conversations[user_id].append({"role": "user", "content": user_message})
         self.conversations[user_id] = self.conversations[user_id][-30:]
         
-        models = [
-            "z-ai/glm-4.5-air:free",
-            "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
-            "meituan/longcat-flash-chat:free",
-            "nousresearch/hermes-3-llama-3.1-405b:free",
-            "arliai/qwq-32b-arliai-rpr-v1:free"
-        ]
+        reply = await self.ask_ai(self.conversations[user_id])
         
-        for model in models:
-            payload = {
-                "model": model,
-                "messages": self.conversations[user_id],
-                "stream": False,
-                "max_tokens": 350
-            }
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(url, headers=headers, json=payload) as resp:
-                        if resp.status == 200:
-                            data = await resp.json()
-                            reply = data["choices"][0]["message"]["content"].strip()
-                            sentences = reply.split(". ")
-                            short_reply = ". ".join(sentences[:2]).strip()
-                            if not short_reply.endswith(('.', '!', '?')):
-                                short_reply += "."
-                            self.conversations[user_id].append({"role": "assistant", "content": short_reply})
-                            self.last_ai = True
-                            return short_reply
-                        else:
-                            print(f"openrouter error with {model} {resp.status}")
-                            continue
-            except Exception as e:
-                print(f"error with {model}: {e}")
-                continue
+        if reply:
+            sentences = reply.split(". ")
+            short_reply = ". ".join(sentences[:2]).strip()
+            if not short_reply.endswith(('.', '!', '?')):
+                short_reply += "."
+            self.conversations[user_id].append({"role": "assistant", "content": short_reply})
+            self.last_ai = True
+            return short_reply
         
         return "i errored sorry"
 
@@ -384,7 +407,7 @@ class nuxified(discord.Client):
 
         return chunks
 
-    async def log_message(self, message):
+    async def log_message(self, message, state="MSG"):
         log_to_file = False
         filename = None
 
@@ -403,6 +426,9 @@ class nuxified(discord.Client):
         if log_dir and not os.path.exists(log_dir):
             os.makedirs(log_dir, exist_ok=True)
 
+        if message.author.bot and state == "MSG":
+            state = "BOT"
+
         timestamp = message.created_at.strftime("%Y-%m-%d %H:%M:%S")
         author = str(message.author)
         channel_name = str(message.channel) if message.guild else "DM"
@@ -410,7 +436,7 @@ class nuxified(discord.Client):
         attachments = [att.url for att in message.attachments] if message.attachments else []
         embeds = message.embeds
 
-        log_line = f"[{timestamp}] {author} in #{channel_name}: {content}"
+        log_line = f"[{timestamp}] [{state}] {author} in #{channel_name}: {content}"
         if attachments:
             log_line += f" | Attachments: {', '.join(attachments)}"
         if embeds:
@@ -454,5 +480,9 @@ async def on_member_join(member):
 @client.event
 async def on_voice_state_update(member, before, after):
     await client.handle_voice_state_update(member, before, after)
+
+@client.event
+async def on_message_delete(message):
+    await client.handle_message_delete(message)
 
 client.run(TOKEN)

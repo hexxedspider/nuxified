@@ -8,9 +8,12 @@ import datetime
 import requests
 import barcode
 import random
+import dotenv
 from googletrans import Translator
 from barcode.writer import ImageWriter
 from PIL import Image, ImageDraw, ImageFont, ImageOps
+
+dotenv.load_dotenv()
 
 STEAM_API_BASE = "https://api.steampowered.com"
 STEAM_API_KEY = os.getenv('STEAM_API_KEY')
@@ -40,6 +43,12 @@ HELP_TEXT = {
         "nux ship <user1> <user2>": "ship two users",
         "nux haiku <prompt>": "generate AI haiku from prompt",
         "nux clippy <text>": "get passive-aggressive paperclip responses",
+        "nux songlyrics <theme/genre>": "generate AI song lyrics",
+        "nux advice <topic>": "get AI advice on any topic",
+        "nux roast <user/text>": "generate creative AI roasts",
+        "nux compliment <user/text>": "generate personalized AI compliments",
+        "nux summarize <text>": "summarize long text with AI",
+        "nux code <description>": "generate code snippets from description",
     }
 }
 
@@ -691,62 +700,134 @@ class Fun:
         if not prompt:
             return await self.bot.send_and_clean(message.channel, "provide a prompt for the haiku")
         
-        if not hasattr(self.bot, 'ai_config') or not self.bot.ai_config.get('api_key'):
-            return await self.bot.send_and_clean(message.channel, "OpenRouter API key not set. Use `nux ai setup` in DMs.")
+        messages = [{"role": "user", "content": f"Write a haiku about: {prompt}. Only respond with the haiku, nothing else."}]
+        haiku = await self.bot.ask_ai(messages)
         
-        try:
-            import aiohttp
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self.bot.ai_config['api_key']}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": self.bot.ai_config.get('model', 'google/gemini-flash-1.5'),
-                        "messages": [{"role": "user", "content": f"Write a haiku about: {prompt}. Only respond with the haiku, nothing else."}]
-                    }
-                ) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        haiku = data['choices'][0]['message']['content']
-                        await self.bot.send_and_clean(message.channel, haiku)
-                    else:
-                        await self.bot.send_and_clean(message.channel, "failed to generate haiku")
-        except Exception as e:
-            await self.bot.send_and_clean(message.channel, f"error: {e}")
+        if haiku:
+            await self.bot.send_and_clean(message.channel, haiku)
+        else:
+            await self.bot.send_and_clean(message.channel, "failed to generate haiku")
 
     async def cmd_clippy(self, message, command_args):
         text = command_args.strip()
         if not text:
             return await self.bot.send_and_clean(message.channel, "what do you need help with?")
         
-        if not hasattr(self.bot, 'ai_config') or not self.bot.ai_config.get('api_key'):
-            return await self.bot.send_and_clean(message.channel, "OpenRouter API key not set. Use `nux ai setup` in DMs.")
+        messages = [
+            {"role": "system", "content": "You are Clippy, the passive-aggressive Microsoft Office assistant. Respond in a condescending, sarcastic way while pretending to be helpful. Keep responses short (1-2 sentences)."},
+            {"role": "user", "content": text}
+        ]
+        response = await self.bot.ask_ai(messages)
         
-        try:
-            import aiohttp
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self.bot.ai_config['api_key']}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": self.bot.ai_config.get('model', 'google/gemini-flash-1.5'),
-                        "messages": [{"role": "system", "content": "You are Clippy, the passive-aggressive Microsoft Office assistant. Respond in a condescending, sarcastic way while pretending to be helpful. Keep responses short (1-2 sentences)."}, {"role": "user", "content": text}]
-                    }
-                ) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        response = data['choices'][0]['message']['content']
-                        await self.bot.send_and_clean(message.channel, f"📎 {response}")
-                    else:
-                        await self.bot.send_and_clean(message.channel, "looks like even I can't help with that one")
-        except Exception as e:
-            await self.bot.send_and_clean(message.channel, f"error: {e}")
+        if response:
+            await self.bot.send_and_clean(message.channel, f"📎 {response}")
+        else:
+            await self.bot.send_and_clean(message.channel, "looks like even I can't help with that one")
+
+    async def cmd_songlyrics(self, message, command_args):
+        theme = command_args.strip()
+        if not theme:
+            return await self.bot.send_and_clean(message.channel, "provide a theme or genre for the song")
+        
+        messages = [{"role": "user", "content": f"Write song lyrics about: {theme}. Include verse, chorus, and bridge. Make it creative and catchy."}]
+        lyrics = await self.bot.ask_ai(messages, max_tokens=1000)
+        
+        if lyrics:
+            if len(lyrics) > 2000:
+                lyrics = lyrics[:1997] + "..."
+            await self.bot.send_and_clean(message.channel, f"🎵 **Song Lyrics**\n{lyrics}")
+        else:
+            await self.bot.send_and_clean(message.channel, "failed to generate lyrics")
+
+    async def cmd_advice(self, message, command_args):
+        topic = command_args.strip()
+        if not topic:
+            return await self.bot.send_and_clean(message.channel, "what do you need advice on?")
+        
+        messages = [
+            {"role": "system", "content": "You are a helpful advisor. Give practical, thoughtful advice. Keep responses concise (2-3 sentences max)."},
+            {"role": "user", "content": topic}
+        ]
+        advice = await self.bot.ask_ai(messages)
+        
+        if advice:
+            await self.bot.send_and_clean(message.channel, f"💡 {advice}")
+        else:
+            await self.bot.send_and_clean(message.channel, "couldn't generate advice")
+
+    async def cmd_roast(self, message, command_args):
+        target = command_args.strip()
+        if not target and not message.mentions:
+            return await self.bot.send_and_clean(message.channel, "who am I roasting?")
+        
+        if message.mentions:
+            target = message.mentions[0].display_name
+        
+        messages = [
+            {"role": "system", "content": "You are a master of creative, witty roasts. Generate a clever, funny roast that's harsh but not genuinely hurtful. Keep it to 1-2 sentences."},
+            {"role": "user", "content": f"Roast {target}"}
+        ]
+        roast = await self.bot.ask_ai(messages)
+        
+        if roast:
+            mention = message.mentions[0].mention if message.mentions else target
+            await self.bot.send_and_clean(message.channel, f"🔥 {mention}: {roast}")
+        else:
+            await self.bot.send_and_clean(message.channel, "couldn't generate roast")
+
+    async def cmd_compliment(self, message, command_args):
+        target = command_args.strip()
+        if not target and not message.mentions:
+            return await self.bot.send_and_clean(message.channel, "who am I complimenting?")
+        
+        if message.mentions:
+            target = message.mentions[0].display_name
+        
+        messages = [
+            {"role": "system", "content": "You are a master of genuine, heartfelt compliments. Generate a creative, specific compliment that feels personal and uplifting. Keep it to 1-2 sentences."},
+            {"role": "user", "content": f"Compliment {target}"}
+        ]
+        compliment = await self.bot.ask_ai(messages)
+        
+        if compliment:
+            mention = message.mentions[0].mention if message.mentions else target
+            await self.bot.send_and_clean(message.channel, f"✨ {mention}: {compliment}")
+        else:
+            await self.bot.send_and_clean(message.channel, "couldn't generate compliment")
+
+    async def cmd_summarize(self, message, command_args):
+        text = command_args.strip()
+        if not text:
+            return await self.bot.send_and_clean(message.channel, "provide text to summarize")
+        
+        messages = [
+            {"role": "system", "content": "You are an expert at summarizing text. Provide a clear, concise summary of the key points. Keep it brief."},
+            {"role": "user", "content": f"Summarize this: {text}"}
+        ]
+        summary = await self.bot.ask_ai(messages)
+        
+        if summary:
+            await self.bot.send_and_clean(message.channel, f"📝 **Summary**\n{summary}")
+        else:
+            await self.bot.send_and_clean(message.channel, "couldn't generate summary")
+
+    async def cmd_code(self, message, command_args):
+        description = command_args.strip()
+        if not description:
+            return await self.bot.send_and_clean(message.channel, "describe what code you need")
+        
+        messages = [
+            {"role": "system", "content": "You are a coding assistant. Generate clean, working code based on the description. Include brief comments. Only output code, no explanations unless asked."},
+            {"role": "user", "content": description}
+        ]
+        code = await self.bot.ask_ai(messages, max_tokens=1000)
+        
+        if code:
+            if len(code) > 1900:
+                code = code[:1897] + "..."
+            await self.bot.send_and_clean(message.channel, f"```\n{code}\n```")
+        else:
+            await self.bot.send_and_clean(message.channel, "couldn't generate code")
         
 def setup(bot):
     return Fun(bot), HELP_TEXT
