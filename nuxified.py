@@ -144,8 +144,6 @@ class nuxified(discord.Client):
                             candidate = 'cmd_' + '_'.join(relevant_parts[:i])
                             if hasattr(curse_instance, candidate):
                                 valid_method_name = candidate
-                                # Reconstruct the clean trigger (e.g., "nux watch")
-                                # If parts had a prefix (len > len(relevant)), include it.
                                 prefix = parts[:len(parts)-len(relevant_parts)]
                                 clean_trigger = ' '.join(prefix + relevant_parts[:i])
                                 break
@@ -197,11 +195,21 @@ class nuxified(discord.Client):
         if message.author.bot:
             return
 
-        if message.author.id != self.owner_id and message.author.id not in ALLOWED_USER_IDS:
-            return
-
         content = message.content.strip()
         lowered = content.lower()
+
+        # AI ping replier works for everyone in DMs
+        if self.ai_enabled and not lowered.startswith("nux ") and not lowered.startswith("all "):
+            if self.user in message.mentions and isinstance(message.channel, discord.DMChannel):
+                async with message.channel.typing():
+                    delay = max(1, min(len(message.content) * 0.05, 13))
+                    await asyncio.sleep(delay)
+                    reply = await self.ask_openrouter(message.author.id, message.author.name, message.content)
+                    await self.send_and_clean(message.channel, reply)
+                return
+
+        if message.author.id != self.owner_id and message.author.id not in ALLOWED_USER_IDS:
+            return
 
         matched_command_key = None
         command_args = ""
@@ -239,15 +247,6 @@ class nuxified(discord.Client):
         if lowered in custom_responses:
             await self.send_and_clean(message.channel, custom_responses[lowered])
             return
-
-        if self.ai_enabled and not lowered.startswith("nux ") and not lowered.startswith("all "):
-            if self.user in message.mentions and isinstance(message.channel, discord.DMChannel):
-                async with message.channel.typing():
-                    delay = max(1, min(len(message.content) * 0.05, 13))
-                    await asyncio.sleep(delay)
-                    reply = await self.ask_openrouter(message.author.id, message.author.name, message.content)
-                    await self.send_and_clean(message.channel, reply)
-                return
 
         for rule in self.autoreact_rules:
             if rule['channel_id'] == message.channel.id and rule['keyword'].lower() in message.content.lower():
