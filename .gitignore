@@ -20,3 +20,5 @@ ideas
 slowburn_stories/
 
 **/docs/update_stats.py
+
+.env_backup*

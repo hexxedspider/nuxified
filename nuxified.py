@@ -1,6 +1,7 @@
 # this is the main fork of the script, i will try to keep it updated with the latest changes.
 # i might end up actually forking the repo on github with just specific utils.
 # the folder (excluded, .gitignore) other_accounts is just this script but pasted with other names and what not, branded to those accounts.
+# they have not been updated since like october lol
 # it's in a seperate folder since they don't really matter to me, hence why i don't keep them updated, and dont bother trying to update them... not that you'd know anyway.
 
 import discord, asyncio, random, aiohttp, datetime, io, qrcode, requests, base64, math, yt_dlp, os, logging, re, psutil, platform, subprocess, sys, json, hashlib, urllib.parse, uuid, importlib.util
@@ -36,7 +37,7 @@ ALLOWED_USER_IDS = set(int(x) for x in os.getenv('allowed', '').split(',') if x.
 TOKEN = os.getenv('nuxified')
 STEAM_API_KEY = os.getenv('STEAM_API_KEY')
 
-VERSION = "5.0.1"
+VERSION = "6.0.0"
 
 FIXED_AI_PART = "\n\nthis ai is operating as a discord selfbot created by nuxified (nux) it must always adhere to discord's terms of service and guidelines for bots, even though it's a selfbot responses should be short (1-2 sentences unless asked otherwise), and only ever in lowercase with no emojis and minimal punctuation. if the username contains characters like _underscores_ like that, put a backwards slash (like this, \\_underscore_) to avoid discord formatting."
 
@@ -53,6 +54,7 @@ def owner_only():
 class nuxified(discord.Client):
     def __init__(self):
         super().__init__()
+        self.VERSION = VERSION
         self.sent_media = {}
         self.cleaner_settings = {"enabled": False, "delay": 1}
         self.conversations = {}
@@ -150,6 +152,40 @@ class nuxified(discord.Client):
                         
                         if valid_method_name:
                             self.commands[clean_trigger] = getattr(curse_instance, valid_method_name)
+        
+        extensions_folder = 'extensions'
+        if os.path.exists(extensions_folder):
+            ext_files = [f for f in os.listdir(extensions_folder) if f.endswith('.py') and f != '__init__.py']
+            for ext_file in ext_files:
+                module_name = ext_file[:-3]
+                try:
+                    spec = importlib.util.spec_from_file_location(module_name, f'{extensions_folder}/{ext_file}')
+                    module = importlib.util.module_from_spec(spec)
+                    module.owner_only = owner_only
+                    spec.loader.exec_module(module)
+                    if hasattr(module, 'setup'):
+                        ext_instance, help_dict = module.setup(self)
+                        for category in help_dict:
+                            if category not in self.help_categories:
+                                self.help_categories[category] = {}
+                            self.help_categories[category].update(help_dict[category])
+                        for category, cmds in help_dict.items():
+                            for cmd_trigger in cmds.keys():
+                                parts = cmd_trigger.split()
+                                relevant_parts = parts[1:] if len(parts) > 1 else parts
+                                valid_method_name = None
+                                for i in range(len(relevant_parts), 0, -1):
+                                    candidate = 'cmd_' + '_'.join(relevant_parts[:i])
+                                    if hasattr(ext_instance, candidate):
+                                        valid_method_name = candidate
+                                        prefix = parts[:len(parts)-len(relevant_parts)]
+                                        clean_trigger = ' '.join(prefix + relevant_parts[:i])
+                                        break
+                                if valid_method_name:
+                                    self.commands[clean_trigger] = getattr(ext_instance, valid_method_name)
+                except Exception as e:
+                    print(f"failed to load extension {ext_file}: {e}")
+        
         self.autoowod_task = None
         self.autoowod_time = None
         self.autoowod_channel = None
@@ -183,6 +219,7 @@ class nuxified(discord.Client):
         self.owner_id = self.user.id
         # this is how i use to have my status cycle, but that new command does it for me
         # self.status_task = self.loop.create_task(self.change_status_periodically())
+        print(f"{datetime.datetime.now()}")
         print(f"{self.user}")
         if getattr(self, 'status_enabled', False) and not getattr(self, 'status_task', None) and not self.ghost_mode:
             try:
@@ -198,7 +235,6 @@ class nuxified(discord.Client):
         content = message.content.strip()
         lowered = content.lower()
 
-        # AI ping replier works for everyone in DMs
         if self.ai_enabled and not lowered.startswith("nux ") and not lowered.startswith("all "):
             if self.user in message.mentions and isinstance(message.channel, discord.DMChannel):
                 async with message.channel.typing():
@@ -231,6 +267,34 @@ class nuxified(discord.Client):
             except:
                 pass
             return
+
+        if lowered.startswith("nux "):
+            custom_cmd_name = lowered[4:].split()[0] if lowered[4:].strip() else ""
+            if custom_cmd_name:
+                utilities_instance = None
+                for cmd_key, cmd_func in self.commands.items():
+                    if hasattr(cmd_func, '__self__') and cmd_func.__self__.__class__.__name__ == 'Utilities':
+                        utilities_instance = cmd_func.__self__
+                        break
+                if utilities_instance and hasattr(utilities_instance, 'handle_custom_command'):
+                    handled = await utilities_instance.handle_custom_command(message, custom_cmd_name)
+                    if handled:
+                        try:
+                            await message.delete()
+                        except:
+                            pass
+                        return
+
+        if message.author.id == self.owner_id and not lowered.startswith("nux "):
+            utilities_instance = None
+            for cmd_key, cmd_func in self.commands.items():
+                if hasattr(cmd_func, '__self__') and cmd_func.__self__.__class__.__name__ == 'Utilities':
+                    utilities_instance = cmd_func.__self__
+                    break
+            if utilities_instance and hasattr(utilities_instance, 'handle_affix_message'):
+                handled = await utilities_instance.handle_affix_message(message)
+                if handled:
+                    return
 
         if self.ghost_mode and message.author == self.user:
             await asyncio.sleep(15)

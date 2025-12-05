@@ -17,7 +17,7 @@ HELP_TEXT = {
     "media": {
         "nux qr <text/url>": "generate a qr code",
         "nux tts <text>": "convert text to speech (sends mp3)",
-        "nux dlmedia <url> <audio|video>": "download videos or audio from youtube, tiktok, pinterest, twitter (fuck x), instagram, and reddit (more websites supported soon)",
+        "nux dlmedia <url>": "download videos or audio from youtube, tiktok, pinterest, twitter (fuck x), instagram, and reddit (more websites supported soon)",
         "nux pornhub <white> - <orange>": "make a image with your text in the pornhub logo style",
         "nux didyou mean <search> - <dym>": "make a google result image that has the <search> text in the text bar, and <dym> being the blue text that would correct you",
         "nux facts <text>": "make an image with the fact book from ed, edd n eddy using your text",
@@ -25,7 +25,6 @@ HELP_TEXT = {
         "nux freq <freq hz> <waveform>": "sends back an audio file with the requested hz and waveform, useful for clean frequencies",
         "nux font <fontname> <text>": "renders text using a specific font from dmfonts",
         "nux vintage": "add VHS effects to last image in chat",
-        "nux dlmedia <url> <audio|video>": "download videos or audio from youtube, tiktok, pinterest, twitter (fuck x), instagram, and reddit (more websites supported soon)",
     }
 }
 
@@ -209,127 +208,74 @@ class Media:
         os.remove(file_path)
 
     async def cmd_dlmedia(self, message, command_args):
-        tokens = command_args.rsplit(' ', 1)
+        url = command_args.strip()
         
-        if len(tokens) != 2:
-            await self.bot.send_and_clean(message.channel, "usage nux dlmedia <url> <audio|video>")
-            return
-        
-        url, mode = tokens
-        mode = mode.lower()
-        if mode not in ("audio", "video"):
-            await self.bot.send_and_clean(message.channel, "usage nux dlmedia <url> <audio|video>")
+        if not url:
+            await self.bot.send_and_clean(message.channel, "usage: nux dlmedia <url>")
             return
         
         platform = "unknown"
-        compress_required = False
         
         if "tiktok.com" in url:
             platform = "tiktok"
         elif "pinterest.com" in url or "pin.it" in url:
             platform = "pinterest"
-            compress_required = True
         elif "youtube.com" in url or "youtu.be" in url:
             platform = "youtube"
         elif "twitter.com" in url or "x.com" in url:
             platform = "twitter"
-            compress_required = True
         elif "instagram.com" in url:
             platform = "instagram"
-            compress_required = True
         elif "reddit.com" in url or "v.redd.it" in url:
             platform = "reddit"
         elif "facebook.com" in url:
             platform = "facebook"
-            compress_required = True
         elif "soundcloud.com" in url:
             platform = "soundcloud"
-            compress_required = True
         elif "twitch.tv" in url:
             platform = "twitch"
         else:
-            await self.bot.send_and_clean(message.channel, "unsupported url supported tiktok, pinterest, youtube, twitter, instagram, reddit")
+            await self.bot.send_and_clean(message.channel, "unsupported url - supported: tiktok, pinterest, youtube, twitter, instagram, reddit, facebook, soundcloud, twitch")
             return
         
-        if mode == "audio":
-            ydl_opts = {
-                'format': 'bestaudio/best',
-                'quiet': True,
-                'noplaylist': True,
-                'outtmpl': '%(title)s.%(ext)s',
-                'postprocessors': [{
-                    'key': 'FFmpegExtractAudio',
-                    'preferredcodec': 'mp3',
-                    'preferredquality': '320',
-                }],
-            }
-        else:
-            ydl_opts = {
-                'format': 'mp4[filesize<8M]/mp4[height<=480]/mp4/best',
-                'quiet': True,
-                'noplaylist': True,
-                'merge_output_format': 'mp4',
-                'outtmpl': '%(title)s.%(ext)s',
-            }
+        ydl_opts = {
+            'quiet': True,
+            'noplaylist': True,
+            'skip_download': True,
+        }
         
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                filename = ydl.prepare_filename(info)
-                if mode == "audio":
-                    filename = os.path.splitext(filename)[0] + ".mp3"
-            
-            file_size = os.path.getsize(filename) / (1024 * 1024)
-            
-            if mode == "video" and file_size > 8:
-                if compress_required:
-                    await self.bot.send_and_clean(message.channel, f"video is too large to send ({file_size:.2f} mb) compressing")
-                    
-                    compressed_filename = f"compressed_{os.path.basename(filename)}"
-                    
-                    ffmpeg_command = [
-                        'ffmpeg', '-i', filename,
-                        '-vf', 'scale=640:-2',
-                        '-c:v', 'libx264',
-                        '-preset', 'fast',
-                        '-crf', '32',
-                        '-c:a', 'aac',
-                        '-b:a', '96k',
-                        compressed_filename,
-                        '-y'
-                    ]
-                    
-                    process = subprocess.run(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                    
-                    if process.returncode != 0 or not os.path.exists(compressed_filename):
-                        await self.bot.send_and_clean(message.channel, f"compression failed try downloading manually {url}")
-                        os.remove(filename)
-                        return
-                    
-                    compressed_size = os.path.getsize(compressed_filename) / (1024 * 1024)
-                    
-                    if compressed_size > 8:
-                        await self.bot.send_and_clean(message.channel, f"even after compression, the video is too large to send ({compressed_size:.2f} mb) try downloading manually {url}")
-                        os.remove(filename)
-                        os.remove(compressed_filename)
-                        return
-                    
-                    compression_ratio = (compressed_size / file_size) * 100
-                    
-                    await self.bot.send_and_clean(
-                        message.channel,
-                        f"downloaded and compressed {platform} video\\noriginal size {file_size:.2f} mb\\ncompressed size {compressed_size:.2f} mb\\ncompression {compression_ratio:.1f}% of original size",
-                        file=discord.File(compressed_filename)
-                    )
-                    
-                    os.remove(filename)
-                    os.remove(compressed_filename)
-                    return
-            await self.bot.send_and_clean(message.channel, f"downloaded {platform} {mode}", file=discord.File(filename))
-            os.remove(filename)
+                info = ydl.extract_info(url, download=False)
+                
+                title = info.get('title', 'Unknown')
+                duration = info.get('duration', 0)
+                
+                video_url = None
+                audio_url = None
+                
+                if 'formats' in info:
+                    for f in reversed(info['formats']):
+                        if f.get('vcodec') != 'none' and not video_url:
+                            video_url = f.get('url')
+                        if f.get('acodec') != 'none' and f.get('vcodec') == 'none' and not audio_url:
+                            audio_url = f.get('url')
+                
+                if not video_url:
+                    video_url = info.get('url')
+                
+                response = f"**{platform}** - {title}\n"
+                if duration:
+                    mins, secs = divmod(duration, 60)
+                    response += f"duration: {int(mins)}:{int(secs):02d}\n"
+                response += f"\n**video:** {video_url}"
+                if audio_url:
+                    response += f"\n**audio:** {audio_url}"
+                
+                await self.bot.send_and_clean(message.channel, response)
         
         except Exception as e:
-            await self.bot.send_and_clean(message.channel, f"error rendering text: {e}")
+            await self.bot.send_and_clean(message.channel, f"error extracting media: {e}")
     
     async def cmd_vintage(self, message, command_args):
         async for msg in message.channel.history(limit=50):

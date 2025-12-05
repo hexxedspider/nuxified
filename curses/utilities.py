@@ -15,6 +15,7 @@ import collections
 from difflib import SequenceMatcher
 from PIL import Image, ImageDraw
 import matplotlib.pyplot as plt
+from simpleeval import simple_eval
 
 XGD_API_KEY = "25ff18ddf60a188f5f2b412db909b8f9"
 
@@ -35,14 +36,12 @@ HELP_TEXT = {
         "nux usercount": "shows the member count of the server",
         "nux iplookup <ip>": "looks up an ip address",
         "nux inviteinfo <invite>": "shows info about an invite",
-        "nux dumpdm": "dumps all dms in the current channel to a file",
         "nux shorten <1|2> <url>": "shortens a url",
         "nux calc <expression>": "calculates a math expression",
-        "nux cdm": "deletes all dms sent by you in the current channel",
-        "nux burstcdm": "deletes the last 5 messages sent by you",
         "nux stats": "shows bot statistics",
         "nux bug": "report a bug",
         "nux repo": "link to the github repo",
+        "nux version": "shows the current bot version",
         "nux update": "check for updates",
         "nux color <hex>": "shows color info and preview",
         "nux temperature <value> <c|f>": "convert temperature",
@@ -61,11 +60,10 @@ HELP_TEXT = {
         "nux config": "show current config",
         "nux ghost": "toggle ghost mode",
         "nux statustoggle": "toggle status rotation",
-        "nux aping": "all ping - secret command",
         "nux servericon": "get the server icon",
         "nux habit <phrase>": "message frequency heatmap for phrase",
         "nux antivocab": "identify least used words in chat",
-        "nux timezone <@user>": "user activity peaks heatmap"
+        "nux timezone <@user>": "user activity peaks heatmap",
     }
 }
 
@@ -86,6 +84,8 @@ class Utilities:
     def build_help_message(self):
         help_message = "available commands\n\n"
         for category, commands in sorted(self.bot.help_categories.items(), key=lambda x: x[0]):
+            if category.lower() in ["nsfw", "owner"]:
+                continue
             help_message += f"{category}\n"
             if not isinstance(commands, dict):
                 help_message += f"error {category} is not formatted correctly\n"
@@ -98,6 +98,8 @@ class Utilities:
     def build_spaced_help_message(self):
         help_message = "available commands\n\n\n"
         for category, commands in sorted(self.bot.help_categories.items(), key=lambda x: x[0]):
+            if category.lower() in ["nsfw", "owner"]:
+                continue
             help_message += f"{category}\n\n"
             if not isinstance(commands, dict):
                 help_message += f"error {category} is not formatted correctly\n\n\n"
@@ -462,21 +464,6 @@ class Utilities:
 
         await self.bot.send_and_clean(message.channel, msg)
 
-    async def cmd_dumpdm(self, message, command_args):
-        messages = []
-        async with message.channel.typing():
-            await asyncio.sleep(7.836)
-            async for msg in message.channel.history(limit=2500, oldest_first=True):
-                timestamp = msg.created_at.strftime("%Y-%m-%d %H:%M")
-                author = "you" if msg.author == self.bot.user else msg.author.name
-                messages.append(f"[{timestamp}] {author} {msg.content}")
-
-        with open("dm_dump.txt", "w", encoding="utf-8") as f:
-            f.write("\n".join(messages))
-
-        file = discord.File("dm_dump.txt")
-        await self.bot.send_and_clean(message.channel, "your archive is ready", file=file)
-
     async def cmd_shorten(self, message, command_args):
         content = command_args
 
@@ -538,88 +525,11 @@ class Utilities:
         if not expr:
             return await self.bot.send_and_clean(message.channel, "give me something to calculate, genius")
         try:
-            result = eval(expr, {"__builtins__": None}, {"sqrt": math.sqrt, "pow": pow, "abs": abs})
-            await self.bot.send_and_clean(message.channel, f"`{expr}` = **{result:,}**")
+            result = simple_eval(expr, functions={"sqrt": math.sqrt, "pow": pow, "abs": abs})
+            await self.bot.send_and_clean(message.channel, f"`{expr}` = **{result}**")
         except Exception as e:
             await self.bot.send_and_clean(message.channel, "that's not a valid expression")
-
-    async def cmd_cdm(self, message, command_args=""):
-        channel = message.channel
-        channel_id = channel.id
-
-        if not hasattr(self.bot, 'cdm_tasks'):
-            self.bot.cdm_tasks = {}
-
-        existing = self.bot.cdm_tasks.get(channel_id)
-
-        if existing and not existing.done():
-            existing.cancel()
-            try:
-                await existing
-            except asyncio.CancelledError:
-                pass
-            self.bot.cdm_tasks.pop(channel_id, None)
-            await self.bot.send_and_clean(channel, "stopped cdm deletions")
-            return
-
-        task = asyncio.create_task(self._cdm_worker(channel))
-        self.bot.cdm_tasks[channel_id] = task
-        await self.bot.send_and_clean(channel, "started cdm deletions — run `nux cdm` again to stop")
-
-    async def _cdm_worker(self, channel):
-        deleted_count = 0
-        channel_id = channel.id
-        try:
-            while True:
-                found = False
-                async for msg in channel.history(limit=250):
-                    if channel_id not in self.bot.cdm_tasks or self.bot.cdm_tasks.get(channel_id) is None:
-                        raise asyncio.CancelledError()
-                    if msg.author.id == self.bot.user.id:
-                        found = True
-                        try:
-                            await msg.delete()
-                            deleted_count += 1
-                            await asyncio.sleep(1.25)
-                        except asyncio.CancelledError:
-                            raise
-                        except Exception:
-                            await asyncio.sleep(0.5)
-
-                if not found:
-                    break
-
-                await asyncio.sleep(0.5)
-
-        except asyncio.CancelledError:
-            return
-        finally:
-            try:
-                self.bot.cdm_tasks.pop(channel_id, None)
-            except Exception:
-                pass
-
-        try:
-            await self.bot.send_and_clean(channel, f"cdm finished, deleted {deleted_count} messages")
-        except Exception:
-            pass
-
-    async def cmd_burstcdm(self, message, command_args=""):
-        channel = message.channel
-        deleted = 0
-        async for msg in channel.history(limit=100):
-            if msg.author.id == self.bot.user.id:
-                try:
-                    await msg.delete()
-                    deleted += 1
-                    if deleted >= 5:
-                        break
-                    await asyncio.sleep(0.1)
-                except:
-                    pass
-        if deleted > 0:
-            await self.bot.send_and_clean(channel, f"burst deleted {deleted} messages")
-
+            
     async def cmd_stats(self, message, command_args=""):
         if hasattr(self.bot, 'start_time'):
             uptime_seconds = (datetime.datetime.utcnow() - self.bot.start_time).total_seconds()
@@ -672,17 +582,33 @@ class Utilities:
                 async with session.get(url) as resp:
                     if resp.status == 200:
                         data = await resp.json()
-                        latest_version = data.get('tag_name', '')
-                        current_version = getattr(self.bot, 'VERSION', 'unknown')
-                        if latest_version and latest_version != f"v{current_version}":
-                            await self.bot.send_and_clean(message.channel, f"your version: v{current_version}\nlatest version: {latest_version}\nupdate available at https://github.com/hexxedspider/nuxified/releases/latest")
-                        else:
-                            await self.bot.send_and_clean(message.channel, f"your version: v{current_version}\nyou are up to date")
+                        latest_tag = data.get('tag_name', '').lstrip('v')
+                        current_ver_str = getattr(self.bot, 'VERSION', '0.0.0').lstrip('v')
+                        
+                        try:
+                            latest_parts = [int(x) for x in latest_tag.split('.')]
+                            current_parts = [int(x) for x in current_ver_str.split('.')]
+                            
+                            while len(latest_parts) < 3: latest_parts.append(0)
+                            while len(current_parts) < 3: current_parts.append(0)
+                            
+                            if current_parts > latest_parts:
+                                await self.bot.send_and_clean(message.channel, f"your version: v{current_ver_str} - unreleased\nlatest release: v{latest_tag}\nyou are on an unverified (test?) build.") # for when im developing
+                            elif current_parts < latest_parts:
+                                await self.bot.send_and_clean(message.channel, f"your version: v{current_ver_str}\nlatest release: v{latest_tag}\nupdate available at https://github.com/hexxedspider/nuxified/releases/latest") # users will see this more than me
+                            else:
+                                await self.bot.send_and_clean(message.channel, f"your version: v{current_ver_str}\nyou are up to date.")
+                        except ValueError:
+                             if latest_tag != current_ver_str:
+                                 await self.bot.send_and_clean(message.channel, f"your version: v{current_ver_str}\nlatest release: v{latest_tag}\nupdate available (version mismatch)") # i will never see this
+                             else:
+                                 await self.bot.send_and_clean(message.channel, f"your version: v{current_ver_str}\nyou are up to date.")
+
                     else:
                         await self.bot.send_and_clean(message.channel, "failed to check for updates")
         except Exception as e:
             await self.bot.send_and_clean(message.channel, f"error checking updates: {e}")
-
+            
     async def cmd_color(self, message, command_args):
         hex_color = command_args.strip().lstrip('#')
         if not hex_color:

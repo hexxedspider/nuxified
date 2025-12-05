@@ -31,7 +31,7 @@ nsfw_categories = {
     "asian": ["asiangirls4whitecocks", "asiangirlsforwhitemen", "asiangirlsforwhitemen", "AsianPorn", "AsianTitFucking", "AsianCumsluts", "AsianNSFW", "AlternativeAsians", "UncensoredAsian", "juicyasians", "asiangirlswhitecocks", "paag", "AsianInvasion", "AsianCumDumpsters", "AsianIncestPorn", "bustyasians"],
     
     "titfuck": ["titfuck", "titfuckblowjob", "titfuckheaven", "titfuckdicksuck", "tittyfuckclips", "differenttittyfuck", "cumcoveredtitfucking", "titfucknation", "frontaltitfuck", "tittyfucking", "cummingbetweentits", "asiantitfucking", "tittyfuck"],
-    
+
     "thick": ["thickwhitegirls", "thickntall", "thickhips", "thickandcurves", "thick", "thickassandfatcock", "thickassamatures", "break_yo_dick_thick", "thickandebony", "thickmom", "slimthick", "thethiccness", "thickwoes", "thickerr", "thick_nerd", "thickwifegonewild", "thickchicksgw", "thickgothgirls", "thickchixx", "thickncurvy"],
 }
 
@@ -45,15 +45,32 @@ nsfwhelp_msg = {
         "nux pussy": "do i need to explain",
         "nux pgif": "porn gif, pgif, yk?",
         "nux neko": "cat-girl related",
-        "nux nsfw": "get nsfw images from reddit categories (ass, boobs, hentai, milf, thighs, goth, bwomen, rreverse, femdom, asian), usage: nux nsfw <category> [number]",
+        "nux nsfw": "get nsfw images from reddit categories, usage: nux nsfw <category> [number]",
         "nux nsfwlist": "show available nsfw categories",
         "nux redgif": "search redgif for nsfw gifs, usage: nux redgif <search> <number>",
-        "nux rule34": "search rule34.xxx for nsfw images, usage: nux rule34 <search> <number>",
+        #"nux rule34": "search rule34.xxx for nsfw images, usage: nux rule34 <search> <number>",
         "nux thighcalc": "estimate squeeze pressure based on bmi inputs, usage: nux thighcalc <height_cm> <weight_kg>",
         "nux jigphy": "estimate jiggle physics based on waist-to-hip ratio, usage: nux jigphy <waist_cm> <hip_cm>",
         "nux slowburn": "ai-generated slow burn story (requires openrouter), usage: nux slowburn <prompt>",
         "nux pickup": "generate AI pickup lines, usage: nux pickup [theme]",
         "nux lewdify <prompt>": "generate NSFW version of prompt using AI",
+        "nux nsfwmix": "get random nsfw images from multiple categories, usage: nux nsfwmix <category1> <category2> [number]",
+        "nux nsfwrandom": "get completely random nsfw content from any category, usage: nux nsfwrandom [number]",
+        "nux nsfwsearch": "search across all nsfw subreddits for specific content, usage: nux nsfwsearch <query> [number]",
+        "nux nsfwblacklist": "blacklist specific nsfw categories, usage: nux nsfwblacklist <category1> <category2> ...",
+        "nux ngif": "get a random gif from any category, usage: nux ngif [number]",
+        "nux nneko": "get a random lewd from any category, usage: nux nneko [number] (yes this is different from `nux neko` lol)",
+        "nux nfoxgirl": "get a random lewd from any category, usage: nux nfoxgirl [number]",
+        "nux kanal": "get a random lewd from any category, usage: nux kanal [number]",
+        "nux kgonewild": "get a random lewd from any category, usage: nux kgonewild [number]",
+        "nux khanal": "get a random lewd from any category, usage: nux khanal [number]",
+        "nux khass": "get a random lewd from any category, usage: nux khass [number]",
+        "nux khkitsune": "get a random lewd from any category, usage: nux khkitsune [number]",
+        "nux khmidriff": "get a random lewd from any category, usage: nux khmidriff [number]",
+        "nux khneko": "get a random lewd from any category, usage: nux khneko [number]",
+        "nux kpaizuri": "get a random lewd from any category, usage: nux kpaizuri [number]",
+        "nux ktentacle": "get a random lewd from any category, usage: nux ktentacle [number]",
+        "nux kyaoi": "get a random lewd from any category, usage: nux kyaoi [number]",
     }
 }
 
@@ -90,7 +107,7 @@ class NSFW:
         args = message.content.strip().split()
 
         if len(args) < 3:
-            return await self.bot.send_and_clean(message.channel, "usage nux nsfw <category> [number]\nunsure of the categories use nux nsfwlist")
+            return await self.bot.send_and_clean(message.channel, "usage nux nsfw <category> [number] [sort: hot/new/top]\nunsure of the categories use nux nsfwlist")
 
         category = args[2].strip('<>').lower()
 
@@ -98,92 +115,109 @@ class NSFW:
             return await self.bot.send_and_clean(message.channel, "invalid category use 'nux nsfwlist' to see available categories")
 
         num_requested = 1
+        sort_type = "hot"
+        
         if len(args) >= 4:
             try:
                 num_requested = int(args[3])
-                if num_requested <= 0:
-                    num_requested = 1
+                if num_requested <= 0: num_requested = 1
             except ValueError:
-                num_requested = 1
+                if args[3].lower() in ["hot", "new", "top"]:
+                    sort_type = args[3].lower()
+                else:
+                    num_requested = 1
+            
+            if len(args) >= 5 and args[4].lower() in ["hot", "new", "top"]:
+                sort_type = args[4].lower()
 
         if isinstance(message.channel, discord.DMChannel):
             pass
         elif hasattr(message.channel, "is_nsfw") and not message.channel.is_nsfw():
             return await self.bot.send_and_clean(message.channel, "this command can only be used in nsfw channels or direct messages")
 
-        max_attempts = 10
-        attempt = 0
-        collected_media = []
-        tried_subreddits = set()
-
         channel_id = message.channel.id
         if channel_id not in self.bot.sent_media:
             self.bot.sent_media[channel_id] = set()
 
         available_subreddits = nsfw_categories[category][:]
+        collected_media = []
+        tried_subreddits = set()
+        
+        async def fetch_posts(subreddit, sort):
+            url = f"https://www.reddit.com/r/{subreddit}/{sort}.json?limit=100"
+            headers = {"user-agent": "mozilla/5.0"}
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, headers=headers) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            return data.get("data", {}).get("children", [])
+            except:
+                pass
+            return []
+
+        def is_valid_media(post_data):
+            url = post_data.get("url", "")
+            if post_data.get("stickied", False): return False
+            if "redgifs" in url.lower(): return False
+            
+            hint = post_data.get("post_hint", "")
+            domain = post_data.get("domain", "")
+            
+            is_video = (
+                hint in ["hosted:video", "rich:video"] or 
+                domain == "v.redd.it" or
+                url.endswith(('.mp4', '.webm', '.mov'))
+            )
+            
+            is_image = url.endswith(('.jpg', '.jpeg', '.png', '.gif'))
+            
+            return (is_video or is_image) and url not in self.bot.sent_media[channel_id]
+
+        max_attempts = 15
+        attempt = 0
+        
+        sort_strategies = [sort_type]
+        if sort_type != 'new': sort_strategies.append('new')
+        if sort_type != 'top': sort_strategies.append('top')
+        
+        current_sort_idx = 0
+        
         while attempt < max_attempts and len(collected_media) < num_requested:
             possible_subreddits = [sub for sub in available_subreddits if sub not in tried_subreddits]
-
             if not possible_subreddits:
-                print("all subreddits have been tried, stopping early")
+                current_sort_idx += 1
+                if current_sort_idx < len(sort_strategies):
+                    tried_subreddits.clear()
+                    continue
                 break
 
             subreddit = self.bot.rand.choice(possible_subreddits)
-            url = f"https://www.reddit.com/r/{subreddit}/hot.json?limit=250"
-            headers = {"user-agent": "mozilla/5.0"}
-
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, headers=headers) as resp:
-                    if resp.status != 200:
-                        attempt += 1
-                        print(f"attempt {attempt} failed to fetch from r/{subreddit}")
-                        tried_subreddits.add(subreddit)
-                        continue
-
-                    try:
-                        data = await resp.json()
-                        posts = data.get("data", {}).get("children", [])
-                        print(f"attempt {attempt + 1} retrieved {len(posts)} posts from r/{subreddit}")
-
-                        if not posts:
-                            attempt += 1
-                            tried_subreddits.add(subreddit)
-                            continue
-
-                        valid_posts = []
-                        for post in posts:
-                            post_data = post.get("data", {})
-                            media_url = post_data.get("url", "")
-                            is_stickied = post_data.get("stickied", False)
-
-                            if is_stickied:
-                                continue
-                            if media_url.endswith(('.gif', '.mp4', '.webm')):
-                                if media_url not in self.bot.sent_media[channel_id]:
-                                    valid_posts.append(media_url)
-
-                        print(f"found {len(valid_posts)} new valid media posts in r/{subreddit}")
-
-                        if not valid_posts:
-                            attempt += 1
-                            tried_subreddits.add(subreddit)
-                            continue
-
-                        self.bot.rand.shuffle(valid_posts)
-
-                        for media_url in valid_posts:
-                            if len(collected_media) >= num_requested:
-                                break
-                            self.bot.sent_media[channel_id].add(media_url)
-                            collected_media.append(media_url)
-
-                        attempt += 1
-
-                    except Exception as e:
-                        print(f"exception while processing subreddit {e}")
-                        attempt += 1
-                        tried_subreddits.add(subreddit)
-                        continue
+            current_sort = sort_strategies[current_sort_idx]
+            
+            posts = await fetch_posts(subreddit, current_sort)
+            
+            if not posts:
+                tried_subreddits.add(subreddit)
+                attempt += 1
+                continue
+                
+            valid_urls = []
+            for post in posts:
+                if is_valid_media(post.get("data", {})):
+                    valid_urls.append(post.get("data", {}).get("url"))
+            
+            if valid_urls:
+                self.bot.rand.shuffle(valid_urls)
+                for url in valid_urls:
+                    if len(collected_media) >= num_requested: break
+                    if url not in self.bot.sent_media[channel_id]:
+                        self.bot.sent_media[channel_id].add(url)
+                        collected_media.append(url)
+            else:
+                tried_subreddits.add(subreddit)
+            
+            attempt += 1
 
         if collected_media:
             for media_url in collected_media:
@@ -192,9 +226,8 @@ class NSFW:
                     await asyncio.sleep(1)
                 except Exception as e:
                     print(f"failed to send media {media_url} {e}")
-            return
         else:
-            return await self.bot.send_and_clean(message.channel, "could not find valid media after several attempts try again later")
+            await self.bot.send_and_clean(message.channel, "could not find valid media after several attempts try again later")
 
     async def cmd_redgif(self, message, command_args):
         args = message.content.strip().split()
@@ -265,130 +298,201 @@ class NSFW:
         finally:
             pass
 
-    async def cmd_rule34(self, message, command_args):
-        args = message.content.strip().split()
-
-        if len(args) < 3:
-            return await self.bot.send_and_clean(message.channel, "usage nux rule34 <search term(s)> [number]")
-
+    async def _nekobot_image_command(self, message, image_types, command_args=""):
         num_requested = 1
-        if len(args) > 3:
+        if command_args.strip():
             try:
-                possible_num = int(args[-1])
-                if possible_num > 0:
-                    num_requested = possible_num
-                    search_terms = args[2:-1]
-                else:
-                    search_terms = args[2:]
+                num_requested = int(command_args.strip())
+                if num_requested <= 0:
+                    num_requested = 1
+                elif num_requested > 10:
+                    num_requested = 10
             except ValueError:
-                search_terms = args[2:]
-        else:
-            search_terms = args[2:]
-
-        search_tags = "+".join(search_terms).strip().lower()
-
-        if isinstance(message.channel, discord.DMChannel):
-            pass
-        elif hasattr(message.channel, "is_nsfw") and not message.channel.is_nsfw():
-            return await self.bot.send_and_clean(message.channel, "this command can only be used in nsfw channels or direct messages")
-
-        url = f"https://rule34.xxx/index.php?page=dapi&s=post&q=index&limit=100&tags={search_tags}"
-
-        async with aiohttp.ClientSession() as session:
+                pass
+        
+        channel_id = message.channel.id
+        if channel_id not in self.bot.sent_media:
+            self.bot.sent_media[channel_id] = set()
+        
+        sent_count = 0
+        max_attempts = num_requested * 10
+        attempts = 0
+        
+        while sent_count < num_requested and attempts < max_attempts:
+            attempts += 1
+            image_type = self.bot.rand.choice(image_types) if isinstance(image_types, list) else image_types
             try:
-                async with session.get(url) as resp:
-                    if resp.status != 200:
-                        return await self.bot.send_and_clean(message.channel, "failed to fetch results from rule34")
-
-                    text = await resp.text()
-                    root = ET.fromstring(text)
-                    posts = root.findall('post')
-
-                    if not posts:
-                        return await self.bot.send_and_clean(message.channel, f"no results found for '{search_tags.replace('+', ' ')}'")
-
-                    channel_id = message.channel.id
-                    if channel_id not in self.bot.sent_media:
-                        self.bot.sent_media[channel_id] = []
-
-                    valid_posts = []
-                    for post in posts:
-                        file_url = post.attrib.get('file_url')
-                        if file_url and file_url not in self.bot.sent_media[channel_id]:
-                            valid_posts.append(file_url)
-
-                    if not valid_posts:
-                        return await self.bot.send_and_clean(message.channel, "couldn't find new media, try again later")
-
-                    self.bot.rand.shuffle(valid_posts)
-
-                    sent_count = 0
-                    for file_url in valid_posts:
-                        if sent_count >= num_requested:
-                            break
-                        try:
-                            await self.bot.send_and_clean(message.channel, file_url)
-                            MAX_TRACKED_URLS = 500
-                            self.bot.sent_media[channel_id].append(file_url)
-                            if len(self.bot.sent_media[channel_id]) > MAX_TRACKED_URLS:
-                                self.bot.sent_media[channel_id].pop(0)
-                            sent_count += 1
-                            await asyncio.sleep(1)
-                        except Exception as e:
-                            print(f"failed to send media {file_url} {e}")
-
-                    if sent_count == 0:
-                        await self.bot.send_and_clean(message.channel, "failed to send media, please try again")
-
+                r = requests.get(f"https://nekobot.xyz/api/image?type={image_type}")
+                data = r.json()
+                url = data.get("message", "")
+                if url and url not in self.bot.sent_media[channel_id]:
+                    self.bot.sent_media[channel_id].add(url)
+                    if len(self.bot.sent_media[channel_id]) > 500:
+                        self.bot.sent_media[channel_id] = set(list(self.bot.sent_media[channel_id])[-400:])
+                    await self.bot.send_and_clean(message.channel, url)
+                    sent_count += 1
+                    if sent_count < num_requested:
+                        await asyncio.sleep(1)
             except Exception as e:
-                print(f"rule34 api error {e}")
-                await self.bot.send_and_clean(message.channel, "an error occurred while fetching rule34 content")
+                print(f"nekobot error: {e}")
+        
+        if sent_count == 0:
+            await self.bot.send_and_clean(message.channel, "no new images found")
 
-    async def cmd_hentai(self, message, commands_args=""):
-        r = requests.get("https://nekobot.xyz/api/image?type=" + self.bot.rand.choice(['hentai', 'hboobs', 'hthigh']))
-        data = r.json()
-        await self.bot.send_and_clean(message.channel, data.get("message", "no image found"))
+    async def cmd_hentai(self, message, command_args=""):
+        await self._nekobot_image_command(message, ['hentai', 'hboobs', 'hthigh'], command_args)
 
     async def cmd_thighs(self, message, command_args=""):
-        r = requests.get("https://nekobot.xyz/api/image?type=thigh")
-        data = r.json()
-        await self.bot.send_and_clean(message.channel, data.get("message", "no image found"))
+        await self._nekobot_image_command(message, "thigh", command_args)
 
     async def cmd_ass(self, message, command_args=""):
-        r = requests.get("https://nekobot.xyz/api/image?type=ass")
-        data = r.json()
-        await self.bot.send_and_clean(message.channel, data.get("message", "no image found"))
+        await self._nekobot_image_command(message, "ass", command_args)
 
     async def cmd_boobs(self, message, command_args=""):
-        r = requests.get("https://nekobot.xyz/api/image?type=boobs")
-        data = r.json()
-        await self.bot.send_and_clean(message.channel, data.get("message", "no image found"))
+        await self._nekobot_image_command(message, "boobs", command_args)
 
     async def cmd_pussy(self, message, command_args=""):
-        r = requests.get("https://nekobot.xyz/api/image?type=pussy")
-        data = r.json()
-        await self.bot.send_and_clean(message.channel, data.get("message", "no image found"))
+        await self._nekobot_image_command(message, "pussy", command_args)
 
     async def cmd_pgif(self, message, command_args=""):
-        r = requests.get("https://nekobot.xyz/api/image?type=pgif")
-        data = r.json()
-        await self.bot.send_and_clean(message.channel, data.get("message", "no image found"))
+        await self._nekobot_image_command(message, "pgif", command_args)
 
     async def cmd_neko(self, message, command_args=""):
-        r = requests.get("https://nekobot.xyz/api/image?type=neko")
-        data = r.json()
-        await self.bot.send_and_clean(message.channel, data.get("message", "no image found"))
+        await self._nekobot_image_command(message, "neko", command_args)
 
-    async def _nekos_life_image_command(self, message, image_type):
+    async def _nekos_life_image_command(self, message, image_type, command_args=""):
+        num_requested = 1
+        if command_args.strip():
+            try:
+                num_requested = int(command_args.strip())
+                if num_requested <= 0:
+                    num_requested = 1
+                elif num_requested > 10:
+                    num_requested = 10
+            except ValueError:
+                pass
+        
+        channel_id = message.channel.id
+        if channel_id not in self.bot.sent_media:
+            self.bot.sent_media[channel_id] = set()
+        
+        sent_count = 0
+        max_attempts = num_requested * 10
+        attempts = 0
+        
         async with aiohttp.ClientSession() as session:
-            async with session.get(f'https://nekos.life/api/v2/img/{image_type}') as resp:
-                if resp.status != 200:
-                    return await self.bot.send_and_clean(message.channel, f"couldn't fetch {image_type} image")
-                data = await resp.json()
-                await self.bot.send_and_clean(message.channel, data.get("url", "no image found"))
+            while sent_count < num_requested and attempts < max_attempts:
+                attempts += 1
+                try:
+                    async with session.get(f'https://nekos.life/api/v2/img/{image_type}') as resp:
+                        if resp.status != 200:
+                            continue
+                        data = await resp.json()
+                        url = data.get("url", "")
+                        if url and url not in self.bot.sent_media[channel_id]:
+                            self.bot.sent_media[channel_id].add(url)
+                            if len(self.bot.sent_media[channel_id]) > 500:
+                                self.bot.sent_media[channel_id] = set(list(self.bot.sent_media[channel_id])[-400:])
+                            await self.bot.send_and_clean(message.channel, url)
+                            sent_count += 1
+                            if sent_count < num_requested:
+                                await asyncio.sleep(1)
+                except Exception as e:
+                    print(f"nekos.life error: {e}")
+        
+        if sent_count == 0:
+            await self.bot.send_and_clean(message.channel, "no new images found")
+                    
+    async def cmd_ngif(self, message, command_args=""):
+        await self._nekos_life_image_command(message, "ngif", command_args)
+
+    async def cmd_nneko(self, message, command_args=""):
+        await self._nekos_life_image_command(message, "neko", command_args)
+
+    async def cmd_nfoxgirl(self, message, command_args=""):
+        await self._nekos_life_image_command(message, "fox_girl", command_args)
+
+    NIGHT_API_KEY = "lzjXAQDDzT-ohOSlveR0GQkAwL3defr-PBRgQpr4hv"
+
+    async def _night_api_image_command(self, message, image_type, command_args=""):
+        num_requested = 1
+        if command_args.strip():
+            try:
+                num_requested = int(command_args.strip())
+                if num_requested <= 0:
+                    num_requested = 1
+                elif num_requested > 10:
+                    num_requested = 10
+            except ValueError:
+                pass
+        
+        channel_id = message.channel.id
+        if channel_id not in self.bot.sent_media:
+            self.bot.sent_media[channel_id] = set()
+        
+        headers = {"authorization": self.NIGHT_API_KEY}
+        
+        sent_count = 0
+        max_attempts = num_requested * 10
+        attempts = 0
+        
+        async with aiohttp.ClientSession() as session:
+            while sent_count < num_requested and attempts < max_attempts:
+                attempts += 1
+                try:
+                    async with session.get(f'https://api.night-api.com/images/nsfw/{image_type}', headers=headers) as resp:
+                        if resp.status != 200:
+                            text = await resp.text()
+                            print(f"night api error: status {resp.status}, response: {text}")
+                            continue
+                        data = await resp.json()
+                        content = data.get("content", {})
+                        url = content.get("url") if isinstance(content, dict) else None
+                        if url and url not in self.bot.sent_media[channel_id]:
+                            self.bot.sent_media[channel_id].add(url)
+                            if len(self.bot.sent_media[channel_id]) > 500:
+                                self.bot.sent_media[channel_id] = set(list(self.bot.sent_media[channel_id])[-400:])
+                            await self.bot.send_and_clean(message.channel, url)
+                            sent_count += 1
+                            if sent_count < num_requested:
+                                await asyncio.sleep(1)
+                except Exception as e:
+                    print(f"night api error: {e}")
+        
+        if sent_count == 0:
+            await self.bot.send_and_clean(message.channel, "no new images found")
+
+    async def cmd_kanal(self, message, command_args=""):
+        await self._night_api_image_command(message, "anal", command_args)
+
+    async def cmd_kgonewild(self, message, command_args=""):
+        await self._night_api_image_command(message, "gonewild", command_args)
+
+    async def cmd_khanal(self, message, command_args=""):
+        await self._night_api_image_command(message, "hanal", command_args)
+
+    async def cmd_khass(self, message, command_args=""):
+        await self._night_api_image_command(message, "hass", command_args)
+
+    async def cmd_khkitsune(self, message, command_args=""):
+        await self._night_api_image_command(message, "hkitsune", command_args)
+
+    async def cmd_khmidriff(self, message, command_args=""):
+        await self._night_api_image_command(message, "hmidriff", command_args)
+
+    async def cmd_khneko(self, message, command_args=""):
+        await self._night_api_image_command(message, "hneko", command_args)
+
+    async def cmd_kpaizuri(self, message, command_args=""):
+        await self._night_api_image_command(message, "paizuri", command_args)
+
+    async def cmd_ktentacle(self, message, command_args=""):
+        await self._night_api_image_command(message, "tentacle", command_args)
+
+    async def cmd_kyaoi(self, message, command_args=""):
+        await self._night_api_image_command(message, "yaoi", command_args)
 
     async def cmd_thighcalc(self, message, command_args=""):
-        """Estimate squeeze pressure based on BMI inputs using AI"""
         args = command_args.strip().split()
         if len(args) < 2:
             return await self.bot.send_and_clean(message.channel, "usage nux thighcalc <height_cm> <weight_kg>")
@@ -419,7 +523,6 @@ Be creative but base it on real physiological principles. Keep response to 2-3 s
             await self.bot.send_and_clean(message.channel, "failed to generate estimate, please try again later")
 
     async def cmd_jigphy(self, message, command_args=""):
-        """Estimate jiggle physics based on waist-to-hip ratio using AI"""
         args = command_args.strip().split()
         if len(args) < 2:
             return await self.bot.send_and_clean(message.channel, "usage nux jigphy <waist_cm> <hip_cm>")
@@ -452,7 +555,6 @@ The very last line should be a very blunt and NSFW statement about given jiggle 
             await self.bot.send_and_clean(message.channel, "failed to generate analysis, please try again later")
 
     async def cmd_slowburn(self, message, command_args=""):
-        """Generate a slow burn story with AI and save to local file"""
         if isinstance(message.channel, discord.DMChannel):
             pass
         elif hasattr(message.channel, "is_nsfw") and not message.channel.is_nsfw():
@@ -528,28 +630,383 @@ Write the complete story now:"""
             await self.bot.send_and_clean(message.channel, "couldn't generate pickup lines")
 
     async def cmd_lewdify(self, message, command_args):
-        """Generate NSFW version of a prompt using AI"""
         if isinstance(message.channel, discord.DMChannel):
             pass
         elif hasattr(message.channel, "is_nsfw") and not message.channel.is_nsfw():
             return await self.bot.send_and_clean(message.channel, "this command can only be used in nsfw channels or direct messages")
-        
+
         prompt = command_args.strip()
         if not prompt:
             return await self.bot.send_and_clean(message.channel, "provide a prompt to lewdify")
-        
+
         lewdify_prompt = f"""Take this prompt and create a NSFW/lewd version of it: "{prompt}"
 
 Make it explicit and sexual while keeping the core concept. Be creative and detailed.
 Keep the response to 2-3 sentences max. Don't hold back on the NSFW content."""
-        
+
         messages = [{"role": "user", "content": lewdify_prompt}]
         lewdified = await self.bot.ask_ai(messages, max_tokens=250)
-        
+
         if lewdified:
             await self.bot.send_and_clean(message.channel, f"🔞 **Lewdified**\n{lewdified}")
         else:
             await self.bot.send_and_clean(message.channel, "failed to lewdify, please try again later")
+
+    async def cmd_nsfwmix(self, message, command_args=""):
+        args = message.content.strip().split()
+
+        if len(args) < 4:
+            return await self.bot.send_and_clean(message.channel, "usage nux nsfwmix <category1> <category2> [number]")
+
+        categories = []
+        num_requested = 1
+
+        for arg in args[2:]:
+            if arg.lower() in nsfw_categories:
+                categories.append(arg.lower())
+            else:
+                try:
+                    num_requested = int(arg)
+                    if num_requested <= 0:
+                        num_requested = 1
+                except ValueError:
+                    continue
+
+        if len(categories) < 2:
+            return await self.bot.send_and_clean(message.channel, "please provide at least 2 valid categories")
+
+        if isinstance(message.channel, discord.DMChannel):
+            pass
+        elif hasattr(message.channel, "is_nsfw") and not message.channel.is_nsfw():
+            return await self.bot.send_and_clean(message.channel, "this command can only be used in nsfw channels or direct messages")
+
+        channel_id = message.channel.id
+        if channel_id not in self.bot.sent_media:
+            self.bot.sent_media[channel_id] = set()
+
+        collected_media = []
+        all_subreddits = []
+
+        for category in categories:
+            all_subreddits.extend(nsfw_categories[category])
+
+        if not all_subreddits:
+            return await self.bot.send_and_clean(message.channel, "no valid subreddits found for the selected categories")
+
+        async def fetch_posts(subreddit, sort="hot"):
+            url = f"https://www.reddit.com/r/{subreddit}/{sort}.json?limit=100"
+            headers = {"user-agent": "mozilla/5.0"}
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, headers=headers) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            return data.get("data", {}).get("children", [])
+            except:
+                pass
+            return []
+
+        def is_valid_media(post_data):
+            url = post_data.get("url", "")
+            if post_data.get("stickied", False): return False
+            if "redgifs" in url.lower() or "gfycat" in url.lower(): return False
+
+            hint = post_data.get("post_hint", "")
+            domain = post_data.get("domain", "")
+
+            is_video = (
+                hint in ["hosted:video", "rich:video"] or
+                domain == "v.redd.it" or
+                url.endswith(('.mp4', '.webm', '.mov'))
+            )
+
+            is_image = url.endswith(('.jpg', '.jpeg', '.png', '.gif'))
+
+            return (is_video or is_image) and url not in self.bot.sent_media[channel_id]
+
+        max_attempts = 20
+        attempt = 0
+        tried_subreddits = set()
+
+        while attempt < max_attempts and len(collected_media) < num_requested:
+            available_subreddits = [sub for sub in all_subreddits if sub not in tried_subreddits]
+            if not available_subreddits:
+                break
+
+            subreddit = self.bot.rand.choice(available_subreddits)
+            posts = await fetch_posts(subreddit)
+
+            if not posts:
+                tried_subreddits.add(subreddit)
+                attempt += 1
+                continue
+
+            valid_urls = []
+            for post in posts:
+                if is_valid_media(post.get("data", {})):
+                    valid_urls.append(post.get("data", {}).get("url"))
+
+            if valid_urls:
+                self.bot.rand.shuffle(valid_urls)
+                for url in valid_urls:
+                    if len(collected_media) >= num_requested: break
+                    if url not in self.bot.sent_media[channel_id]:
+                        self.bot.sent_media[channel_id].add(url)
+                        collected_media.append(url)
+            else:
+                tried_subreddits.add(subreddit)
+
+            attempt += 1
+
+        if collected_media:
+            for media_url in collected_media:
+                try:
+                    await self.bot.send_and_clean(message.channel, media_url)
+                    await asyncio.sleep(1)
+                except Exception as e:
+                    print(f"failed to send media {media_url} {e}")
+        else:
+            await self.bot.send_and_clean(message.channel, "could not find valid media after several attempts try again later")
+
+    async def cmd_nsfwrandom(self, message, command_args=""):
+        args = message.content.strip().split()
+
+        num_requested = 1
+        if len(args) >= 3:
+            try:
+                num_requested = int(args[2])
+                if num_requested <= 0:
+                    num_requested = 1
+            except ValueError:
+                pass
+
+        if isinstance(message.channel, discord.DMChannel):
+            pass
+        elif hasattr(message.channel, "is_nsfw") and not message.channel.is_nsfw():
+            return await self.bot.send_and_clean(message.channel, "this command can only be used in nsfw channels or direct messages")
+
+        channel_id = message.channel.id
+        if channel_id not in self.bot.sent_media:
+            self.bot.sent_media[channel_id] = set()
+
+        all_subreddits = []
+        for category, subreddits in nsfw_categories.items():
+            all_subreddits.extend(subreddits)
+
+        if not all_subreddits:
+            return await self.bot.send_and_clean(message.channel, "no nsfw categories available")
+
+        collected_media = []
+
+        async def fetch_posts(subreddit, sort="hot"):
+            url = f"https://www.reddit.com/r/{subreddit}/{sort}.json?limit=100"
+            headers = {"user-agent": "mozilla/5.0"}
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, headers=headers) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            return data.get("data", {}).get("children", [])
+            except:
+                pass
+            return []
+
+        def is_valid_media(post_data):
+            url = post_data.get("url", "")
+            if post_data.get("stickied", False): return False
+            if "redgifs" in url.lower() or "gfycat" in url.lower(): return False
+
+            hint = post_data.get("post_hint", "")
+            domain = post_data.get("domain", "")
+
+            is_video = (
+                hint in ["hosted:video", "rich:video"] or
+                domain == "v.redd.it" or
+                url.endswith(('.mp4', '.webm', '.mov'))
+            )
+
+            is_image = url.endswith(('.jpg', '.jpeg', '.png', '.gif'))
+
+            return (is_video or is_image) and url not in self.bot.sent_media[channel_id]
+
+        max_attempts = 20
+        attempt = 0
+        tried_subreddits = set()
+
+        while attempt < max_attempts and len(collected_media) < num_requested:
+            available_subreddits = [sub for sub in all_subreddits if sub not in tried_subreddits]
+            if not available_subreddits:
+                break
+
+            subreddit = self.bot.rand.choice(available_subreddits)
+            posts = await fetch_posts(subreddit)
+
+            if not posts:
+                tried_subreddits.add(subreddit)
+                attempt += 1
+                continue
+
+            valid_urls = []
+            for post in posts:
+                if is_valid_media(post.get("data", {})):
+                    valid_urls.append(post.get("data", {}).get("url"))
+
+            if valid_urls:
+                self.bot.rand.shuffle(valid_urls)
+                for url in valid_urls:
+                    if len(collected_media) >= num_requested: break
+                    if url not in self.bot.sent_media[channel_id]:
+                        self.bot.sent_media[channel_id].add(url)
+                        collected_media.append(url)
+            else:
+                tried_subreddits.add(subreddit)
+
+            attempt += 1
+
+        if collected_media:
+            for media_url in collected_media:
+                try:
+                    await self.bot.send_and_clean(message.channel, media_url)
+                    await asyncio.sleep(1)
+                except Exception as e:
+                    print(f"failed to send media {media_url} {e}")
+        else:
+            await self.bot.send_and_clean(message.channel, "could not find valid media after several attempts try again later")
+
+    async def cmd_nsfwsearch(self, message, command_args=""):
+        args = message.content.strip().split()
+
+        if len(args) < 3:
+            return await self.bot.send_and_clean(message.channel, "usage nux nsfwsearch <query> [number]")
+
+        num_requested = 1
+        if len(args) >= 4:
+            try:
+                num_requested = int(args[3])
+                if num_requested <= 0:
+                    num_requested = 1
+            except ValueError:
+                pass
+
+        search_query = args[2].lower()
+
+        if isinstance(message.channel, discord.DMChannel):
+            pass
+        elif hasattr(message.channel, "is_nsfw") and not message.channel.is_nsfw():
+            return await self.bot.send_and_clean(message.channel, "this command can only be used in nsfw channels or direct messages")
+
+        channel_id = message.channel.id
+        if channel_id not in self.bot.sent_media:
+            self.bot.sent_media[channel_id] = set()
+
+        all_subreddits = []
+        for category, subreddits in nsfw_categories.items():
+            all_subreddits.extend(subreddits)
+
+        if not all_subreddits:
+            return await self.bot.send_and_clean(message.channel, "no nsfw categories available")
+
+        collected_media = []
+
+        async def search_subreddit(subreddit, query):
+            url = f"https://www.reddit.com/r/{subreddit}/search.json?q={query}&sort=relevance&limit=100"
+            headers = {"user-agent": "mozilla/5.0"}
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, headers=headers) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            return data.get("data", {}).get("children", [])
+            except:
+                pass
+            return []
+
+        def is_valid_media(post_data):
+            url = post_data.get("url", "")
+            if post_data.get("stickied", False): return False
+            if "redgifs" in url.lower() or "gfycat" in url.lower(): return False
+
+            hint = post_data.get("post_hint", "")
+            domain = post_data.get("domain", "")
+
+            is_video = (
+                hint in ["hosted:video", "rich:video"] or
+                domain == "v.redd.it" or
+                url.endswith(('.mp4', '.webm', '.mov'))
+            )
+
+            is_image = url.endswith(('.jpg', '.jpeg', '.png', '.gif'))
+
+            return (is_video or is_image) and url not in self.bot.sent_media[channel_id]
+
+        max_attempts = 15
+        attempt = 0
+        tried_subreddits = set()
+
+        while attempt < max_attempts and len(collected_media) < num_requested:
+            available_subreddits = [sub for sub in all_subreddits if sub not in tried_subreddits]
+            if not available_subreddits:
+                break
+
+            subreddit = self.bot.rand.choice(available_subreddits)
+            posts = await search_subreddit(subreddit, search_query)
+
+            if not posts:
+                tried_subreddits.add(subreddit)
+                attempt += 1
+                continue
+
+            valid_urls = []
+            for post in posts:
+                if is_valid_media(post.get("data", {})):
+                    valid_urls.append(post.get("data", {}).get("url"))
+
+            if valid_urls:
+                self.bot.rand.shuffle(valid_urls)
+                for url in valid_urls:
+                    if len(collected_media) >= num_requested: break
+                    if url not in self.bot.sent_media[channel_id]:
+                        self.bot.sent_media[channel_id].add(url)
+                        collected_media.append(url)
+            else:
+                tried_subreddits.add(subreddit)
+
+            attempt += 1
+
+        if collected_media:
+            for media_url in collected_media:
+                try:
+                    await self.bot.send_and_clean(message.channel, media_url)
+                    await asyncio.sleep(1)
+                except Exception as e:
+                    print(f"failed to send media {media_url} {e}")
+        else:
+            await self.bot.send_and_clean(message.channel, f"could not find media matching '{search_query}' after several attempts try again later")
+
+    async def cmd_nsfwblacklist(self, message, command_args=""):
+        args = message.content.strip().split()
+
+        if len(args) < 3:
+            return await self.bot.send_and_clean(message.channel, "usage nux nsfwblacklist <category1> <category2> ...")
+
+        categories_to_blacklist = []
+        for arg in args[2:]:
+            if arg.lower() in nsfw_categories:
+                categories_to_blacklist.append(arg.lower())
+            else:
+                return await self.bot.send_and_clean(message.channel, f"invalid category: {arg}. use 'nux nsfwlist' to see available categories")
+
+        if not categories_to_blacklist:
+            return await self.bot.send_and_clean(message.channel, "no valid categories provided")
+
+        if not hasattr(self.bot, 'nsfw_blacklist'):
+            self.bot.nsfw_blacklist = set()
+
+        for category in categories_to_blacklist:
+            self.bot.nsfw_blacklist.add(category)
+
+        blacklisted = ", ".join(categories_to_blacklist)
+        await self.bot.send_and_clean(message.channel, f"blacklisted categories: {blacklisted}")
 
 def setup(bot):
     return NSFW(bot), nsfwhelp_msg

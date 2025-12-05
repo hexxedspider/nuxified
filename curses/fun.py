@@ -55,7 +55,6 @@ HELP_TEXT = {
 class Fun:
     def __init__(self, bot):
         self.bot = bot
-        self.weather_ip_enabled = False
     
     async def cmd_achievement(self, message, command_args):
         text = command_args
@@ -246,7 +245,7 @@ class Fun:
     async def cmd_weather(self, message, command_args):
         args = command_args.strip()
         if not args:
-            if not self.weather_ip_enabled:
+            if not self.bot.weather_ip_enabled:
                 return await self.bot.send_and_clean(message.channel, "usage nux weather <location>")
             async with aiohttp.ClientSession() as session:
                 resp = await session.get('https://api.ipify.org')
