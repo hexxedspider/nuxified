@@ -288,12 +288,12 @@ class text_tools_commands:
         result = text.translate(rot13_map)
         await self.client.send_and_clean(message.channel, result)
 
-    async def cmd_removevowels(self, message, command_args):
+    async def cmd_rvowel(self, message, command_args):
         text = command_args.strip()
         if not text:
-            return await self.client.send_and_clean(message.channel, "usage nux removevowels <text>")
+            return await self.client.send_and_clean(message.channel, "usage nux rvowel <text>")
 
-        vowels = "aeiouaeiou"
+        vowels = "aeiouAEIOU"
         result = ''.join([char for char in text.lower() if char not in vowels])
         await self.client.send_and_clean(message.channel, result)
 

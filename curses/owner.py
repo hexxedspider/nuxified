@@ -26,7 +26,9 @@ HELP_TEXT = {
         "nux suffix <text>": "set message suffix (use 'clear' to remove)",
         "nux affix": "toggle prefix/suffix on messages",
         "nux dumpdm": "dump all dms in the current channel to a file",
-        "nux imagedump": "dump all images in a channel to a zip file"
+        "nux imagedump": "dump all images in a channel to a zip file",
+        "nux cdm": "starts deleting all messages sent by me in the current channel - run again to stop",
+        "nux burstcdm": "deletes the last 5 messages sent by me in the current channel"
     }
 }
 

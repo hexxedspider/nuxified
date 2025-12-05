@@ -19,7 +19,7 @@ HELP_TEXT = {
         "nux tts <text>": "convert text to speech (sends mp3)",
         "nux dlmedia <url>": "download videos or audio from youtube, tiktok, pinterest, twitter (fuck x), instagram, and reddit (more websites supported soon)",
         "nux pornhub <white> - <orange>": "make a image with your text in the pornhub logo style",
-        "nux didyou mean <search> - <dym>": "make a google result image that has the <search> text in the text bar, and <dym> being the blue text that would correct you",
+        "nux didyoumean <search> - <dym>": "make a google result image that has the <search> text in the text bar, and <dym> being the blue text that would correct you",
         "nux facts <text>": "make an image with the fact book from ed, edd n eddy using your text",
         "nux scroll <text>": "make an image with the scroll meme format",
         "nux freq <freq hz> <waveform>": "sends back an audio file with the requested hz and waveform, useful for clean frequencies",
@@ -143,7 +143,7 @@ class Media:
         except Exception as e:
             await self.bot.send_and_clean(message.channel, "couldn't generate scroll")
 
-    async def cmd_waveform(self, message, command_args):
+    async def cmd_freq(self, message, command_args):
         args = message.content.strip().split()
         if len(args) != 4:
             await message.channel.send("usage nux freq <frequency_hz> <wave_type (sine/square/triangle)>")
