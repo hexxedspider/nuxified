@@ -22,3 +22,6 @@ slowburn_stories/
 **/docs/update_stats.py
 
 .env_backup*
+
+affix_settings.json
+**/custom_commands.json

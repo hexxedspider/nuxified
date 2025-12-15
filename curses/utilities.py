@@ -49,33 +49,14 @@ HELP_TEXT = {
         "nux todo <add|list|remove|clear>": "manage todo list",
         "nux steal <emoji/sticker>": "steal an emoji or sticker",
         "nux topmembers <limit>": "show most active members in channel",
-        "nux watch <guild_id|dm|list>": "watch a guild or dms",
-        "nux trackjoins <guild_id|list>": "track joins in a guild",
-        "nux setjoinwebhook <url>": "set webhook for join tracking",
-        "nux voicewatch <guild_id|list>": "watch voice channels",
-        "nux autoowod <start|stop>": "auto owo daily",
-        "nux autoreact <channel_id> <keyword> <emoji>": "auto react to keywords",
         "nux ai memory <user_id>": "show ai conversation memory",
         "nux learn <phrase> | <response>": "teach the ai a custom response",
-        "nux config": "show current config",
-        "nux ghost": "toggle ghost mode",
-        "nux statustoggle": "toggle status rotation",
         "nux servericon": "get the server icon",
         "nux habit <phrase>": "message frequency heatmap for phrase",
         "nux antivocab": "identify least used words in chat",
         "nux timezone <@user>": "user activity peaks heatmap",
     }
 }
-
-def owner_only():
-    def decorator(func):
-        async def wrapper(self, message, *args, **kwargs):
-            if message.author.id != self.bot.owner_id:
-                await self.bot.send_and_clean(message.channel, "only i can do that")
-                return
-            return await func(self, message, *args, **kwargs)
-        return wrapper
-    return decorator
 
 class Utilities:
     def __init__(self, bot):
@@ -848,498 +829,7 @@ class Utilities:
         except Exception as e:
             await self.bot.send_and_clean(message.channel, f"error analyzing messages: {e}")
 
-    @owner_only()
-    async def cmd_watch(self, message, command_args):
-        args = message.content.lower().split()
-        if len(args) < 3:
-            return await self.bot.send_and_clean(message.channel, "usage: nux watch <guild_id | dm | list>")
-
-        target = args[2]
-
-        if target == "dm":
-            self.bot.watch_all_dms = not self.bot.watch_all_dms
-            status = "now" if self.bot.watch_all_dms else "no longer"
-            await self.bot.send_and_clean(message.channel, f"i am {status} tracking all dms")
-        elif target == "list":
-            watched_list = []
-            if self.bot.watch_all_dms:
-                watched_list.append("direct messages (dm)")
-            for guild_id in list(self.bot.watched_guilds):
-                guild = self.bot.get_guild(guild_id)
-                if guild:
-                    watched_list.append(f"{guild.name} (id {guild_id})")
-                else:
-                    self.bot.watched_guilds.remove(guild_id)
-                    self.bot.save_config()
-            
-            if watched_list:
-                response = "currently watching:\n" + "\n".join(watched_list)
-            else:
-                response = "not currently watching any servers or dms"
-            await self.bot.send_and_clean(message.channel, response)
-            return
-        else:
-            try:
-                guild_id = int(target)
-            except ValueError:
-                return await self.bot.send_and_clean(message.channel, "invalid guild id or target")
-
-            if guild_id in self.bot.watched_guilds:
-                self.bot.watched_guilds.remove(guild_id)
-                await self.bot.send_and_clean(message.channel, f"stopped watching guild {guild_id}")
-            else:
-                self.bot.watched_guilds.add(guild_id)
-                await self.bot.send_and_clean(message.channel, f"now watching guild {guild_id}")
         
-        self.bot.save_config()
-
-    @owner_only()
-    async def cmd_trackjoins(self, message, command_args):
-        if not command_args or command_args.lower().strip() == "list":
-            tracked_list = []
-            for guild_id in self.bot.tracked_joins:
-                guild = self.bot.get_guild(guild_id)
-                if guild:
-                    tracked_list.append(f"{guild.name} (id {guild_id})")
-            if tracked_list:
-                response = "currently tracking joins for:\n" + "\n".join(tracked_list)
-            else:
-                response = "no guilds are being tracked for joins"
-            await self.bot.send_and_clean(message.channel, response)
-        else:
-            try:
-                guild_id = int(command_args.strip())
-            except ValueError:
-                await self.bot.send_and_clean(message.channel, "provide a valid guild id or use 'list' to see tracked guilds")
-                return
-            if guild_id in self.bot.tracked_joins:
-                self.bot.tracked_joins.remove(guild_id)
-                await self.bot.send_and_clean(message.channel, f"stopped tracking joins in guild {guild_id}")
-            else:
-                self.bot.tracked_joins.add(guild_id)
-                await self.bot.send_and_clean(message.channel, f"now tracking joins in guild {guild_id}")
-            self.bot.save_config()
-
-    @owner_only()
-    async def cmd_setjoinwebhook(self, message, command_args=""):
-        if not command_args or command_args.lower() in ["status", "stat"]:
-            if not self.bot.join_webhook:
-                await self.bot.send_and_clean(message.channel, "no join webhook set")
-                return
-            embed = {
-                "title": "webhook test",
-                "description": "this is a test message for the join webhook",
-                "color": 0x00ff00
-            }
-            try:
-                async with aiohttp.ClientSession() as session:
-                    payload = {
-                        "username": "nux worker test",
-                        "avatar_url": self.bot.user.avatar.url if self.bot.user.avatar else None,
-                        "embeds": [embed]
-                    }
-                    resp = await session.post(self.bot.join_webhook, json=payload)
-                    if resp.status == 204:
-                        await self.bot.send_and_clean(message.channel, "join webhook is set and working")
-                    else:
-                        await self.bot.send_and_clean(message.channel, "join webhook is set but not working (check url)")
-            except Exception as e:
-                await self.bot.send_and_clean(message.channel, f"join webhook is set but error: {e}")
-        else:
-            webhook_url = command_args.strip()
-            if not webhook_url:
-                await self.bot.send_and_clean(message.channel, "provide a webhook url")
-                return
-            if not webhook_url.startswith("https://discordapp.com/api/webhooks/") and not webhook_url.startswith("https://discord.com/api/webhooks/"):
-                await self.bot.send_and_clean(message.channel, "provide a valid discord webhook url")
-                return
-            self.bot.join_webhook = webhook_url
-            self.bot.save_config()
-            await self.bot.send_and_clean(message.channel, "join notification webhook set")
-
-    @owner_only()
-    async def cmd_voicewatch(self, message, command_args=""):
-        action = command_args.strip()
-
-        if not action:
-            await self.bot.send_and_clean(message.channel, "usage nux voicewatch <guild_id | list>")
-            return
-
-        if action == "list":
-            if not hasattr(self.bot, 'voice_watch_enabled'):
-                self.bot.voice_watch_enabled = set()
-            
-            watched = [self.bot.get_guild(gid).name for gid in self.bot.voice_watch_enabled if self.bot.get_guild(gid)]
-            if watched:
-                await self.bot.send_and_clean(message.channel, "voice watching: " + ", ".join(watched))
-            else:
-                await self.bot.send_and_clean(message.channel, "no voice watching")
-            return
-
-        try:
-            guild_id = int(action)
-            guild = self.bot.get_guild(guild_id)
-            if not guild:
-                await self.bot.send_and_clean(message.channel, "invalid guild id")
-                return
-
-            if not hasattr(self.bot, 'voice_watch_enabled'):
-                self.bot.voice_watch_enabled = set()
-
-            if guild_id in self.bot.voice_watch_enabled:
-                self.bot.voice_watch_enabled.remove(guild_id)
-                await self.bot.send_and_clean(message.channel, f"stopped voice watching {guild.name}")
-            else:
-                self.bot.voice_watch_enabled.add(guild_id)
-                await self.bot.send_and_clean(message.channel, f"now voice watching {guild.name}")
-
-        except ValueError:
-            await self.bot.send_and_clean(message.channel, "invalid guild id")
-
-    @owner_only()
-    async def cmd_autoowod(self, message, command_args=""):
-        parts = command_args.split()
-
-        if not parts:
-            if self.bot.autoowod_task and not self.bot.autoowod_task.done():
-                await self.bot.send_and_clean(message.channel, f"autoowod running at {self.bot.autoowod_time} UTC")
-            else:
-                await self.bot.send_and_clean(message.channel, "autoowod not running")
-            return
-
-        action = parts[0].lower()
-
-        if action == "start":
-            if len(parts) < 3:
-                await self.bot.send_and_clean(message.channel, "usage nux autoowod start <channel_id> <HH:MM> (UTC)")
-                return
-
-            try:
-                channel_id = int(parts[1])
-                channel = self.bot.get_channel(channel_id)
-                if not channel or not isinstance(channel, discord.TextChannel):
-                    await self.bot.send_and_clean(message.channel, "invalid channel id or not text channel")
-                    return
-
-                time_str = parts[2]
-                hour, minute = map(int, time_str.split(':'))
-                if not (0 <= hour <= 23 and 0 <= minute <= 59):
-                    raise ValueError
-
-                self.bot.autoowod_time = time_str
-                self.bot.autoowod_channel = channel
-                if self.bot.autoowod_task and not self.bot.autoowod_task.done():
-                    await self.bot.send_and_clean(message.channel, "autoowod already running")
-                    return
-
-                self.bot.autoowod_task = self.bot.loop.create_task(self._autoowod_worker())
-                await self.bot.send_and_clean(message.channel, f"autoowod started in {channel} at {self.bot.autoowod_time} UTC")
-
-            except ValueError:
-                await self.bot.send_and_clean(message.channel, "invalid channel id or time format")
-
-        elif action == "stop":
-            if self.bot.autoowod_task:
-                self.bot.autoowod_task.cancel()
-                try:
-                    await self.bot.autoowod_task
-                except asyncio.CancelledError:
-                    pass
-                self.bot.autoowod_task = None
-                self.bot.autoowod_time = None
-                self.bot.autoowod_channel = None
-                await self.bot.send_and_clean(message.channel, "autoowod stopped")
-            else:
-                await self.bot.send_and_clean(message.channel, "autoowod not running")
-
-        else:
-            await self.bot.send_and_clean(message.channel, "usage nux autoowod start/stop [channel_id] [time]")
-
-    async def _autoowod_worker(self):
-        while True:
-            now = datetime.datetime.utcnow()
-            hour, minute = map(int, self.bot.autoowod_time.split(':'))
-            scheduled = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-            if scheduled <= now:
-                scheduled += datetime.timedelta(days=1)
-            wait_seconds = (scheduled - now).total_seconds()
-            variation = self.bot.rand.uniform(-300, 300)
-            wait_seconds += variation
-            if wait_seconds < 0:
-                wait_seconds = 900 
-            await asyncio.sleep(wait_seconds)
-            try:
-                await self.bot.autoowod_channel.send("owo daily")
-            except:
-                pass
-
-    async def cmd_autoreact(self, message, command_args=""):
-        args = command_args.split()
-        if not args:
-            if not self.bot.autoreact_rules:
-                await self.bot.send_and_clean(message.channel, "no autoreact rules set")
-                return
-            response = "autoreact rules:\n"
-            for rule in self.bot.autoreact_rules:
-                try:
-                    emoji = self.bot.get_emoji(rule['emoji_id']) if 'emoji_id' in rule else rule['emoji']
-                    channel = self.bot.get_channel(rule['channel_id'])
-                    response += f"- {channel.name if channel else 'unknown'}: '{rule['keyword']}' -> {emoji}\n"
-                except:
-                    response += f"- unknown: '{rule['keyword']}' -> {rule.get('emoji', 'unknown')}\n"
-            await self.bot.send_and_clean(message.channel, response.strip())
-            return
-
-        action = args[0].lower()
-
-        if action == "remove":
-            if len(args) < 3:
-                await self.bot.send_and_clean(message.channel, "usage nux autoreact remove <channel_id> <keyword>")
-                return
-            try:
-                channel_id = int(args[1])
-                keyword = args[2].lower()
-                new_rules = [r for r in self.bot.autoreact_rules if not (r['channel_id'] == channel_id and r['keyword'] == keyword)]
-                if len(new_rules) == len(self.bot.autoreact_rules):
-                    await self.bot.send_and_clean(message.channel, "no matching rule found")
-                else:
-                    self.bot.autoreact_rules = new_rules
-                    self.bot.save_config()
-                    await self.bot.send_and_clean(message.channel, f"removed autoreact rule for keyword '{keyword}' in channel {channel_id}")
-            except ValueError:
-                await self.bot.send_and_clean(message.channel, "invalid channel id")
-        elif len(args) >= 3:
-            try:
-                channel_id = int(action)
-                keyword = args[1].lower()
-                emoji = args[2]
-                emoji_id = None
-                if emoji.startswith("<:") and emoji.endswith(">"):
-                    emoji_id = emoji.split(":")[-1][:-1]
-                    try:
-                        emoji_id = int(emoji_id)
-                    except:
-                        pass
-                rule = {
-                    'channel_id': channel_id,
-                    'keyword': keyword,
-                    'emoji': emoji,
-                    'emoji_id': emoji_id
-                }
-                if not hasattr(self.bot, 'autoreact_rules') or self.bot.autoreact_rules is None:
-                    self.bot.autoreact_rules = []
-                self.bot.autoreact_rules.append(rule)
-                self.bot.save_config()
-                await self.bot.send_and_clean(message.channel, f"added autoreact rule: channel {channel_id}, keyword '{keyword}', emoji {emoji}")
-            except ValueError:
-                await self.bot.send_and_clean(message.channel, "invalid channel id")
-        else:
-            await self.bot.send_and_clean(message.channel, "usage nux autoreact [<channel_id> <keyword> <emoji> | remove <channel_id> <keyword>]")
-
-    async def cmd_ai_memory(self, message, command_args=""):
-        try:
-            user_id = int(command_args)
-            if user_id not in self.bot.conversations:
-                await self.bot.send_and_clean(message.channel, "no conversation history with that user")
-                return
-            history = self.bot.conversations[user_id]
-            if len(history) <= 1:
-                await self.bot.send_and_clean(message.channel, "no conversation history with that user")
-                return
-            summary = f"conversation with {user_id}\n" + "\n".join([f"{msg['role']}: {(msg['content'][:50] + '...') if len(msg['content']) > 50 else msg['content']}" for msg in history[-10:] if msg['role'] != 'system'])
-            await self.bot.send_and_clean(message.channel, summary)
-        except ValueError:
-            await self.bot.send_and_clean(message.channel, "invalid user id")
-
-    async def cmd_learn(self, message, command_args="s"):
-        args = command_args.split(" | ", 1)
-        if len(args) != 2:
-            await self.bot.send_and_clean(message.channel, "usage nux learn <input_phrase> | <output_response>")
-            return
-        phrase, response = args
-        phrase = phrase.strip().lower()
-        response = response.strip()
-        
-        if not hasattr(self.bot, 'ai_config'):
-            self.bot.ai_config = {}
-            
-        if 'custom_responses' not in self.bot.ai_config:
-            self.bot.ai_config['custom_responses'] = {}
-        self.bot.ai_config['custom_responses'][phrase] = response
-        with open('ai_config.pkl', 'wb') as f:
-            pickle.dump(self.bot.ai_config, f)
-        await self.bot.send_and_clean(message.channel, f"learned '{phrase}' -> '{response}'")
-
-    @owner_only()
-    async def cmd_config(self, message, command_args=""):
-        try:
-            configuration = {}
-            if os.path.exists('config.pkl'):
-                with open('config.pkl', 'rb') as f:
-                    configuration['config'] = pickle.load(f)
-            if os.path.exists('ai_config.pkl'):
-                with open('ai_config.pkl', 'rb') as f:
-                    configuration['ai_config'] = pickle.load(f)
-
-            formatted = json.dumps(configuration, indent=4, default=str)
-            chunks = [formatted[i:i+1900] for i in range(0, len(formatted), 1900)]
-            for chunk in chunks:
-                await self.bot.send_and_clean(message.channel, f"```\n{chunk}```")
-        except Exception as e:
-            await self.bot.send_and_clean(message.channel, f"failed to load config: {e}")
-
-    @owner_only()
-    async def cmd_ghost(self, message, command_args=""):
-        if not self.bot.ghost_mode:
-            self.bot.saved_activity = getattr(self.bot.user, 'activity', None)
-            self.bot.saved_status = getattr(self.bot.user, 'status', discord.Status.online)
-            self.bot.saved_status_enabled = self.bot.status_enabled
-
-            if self.bot.status_task:
-                self.bot.status_task.cancel()
-                self.bot.status_task = None
-            self.bot.status_enabled = False 
-
-            await self.bot.change_presence(activity=None, status=discord.Status.offline)
-            self.bot.ghost_mode = True
-            status_message = "active, profile is offline and messages delete after 15 seconds."
-        else: 
-            self.bot.ghost_mode = False
-            self.bot.status_enabled = self.bot.saved_status_enabled 
-
-            if self.bot.status_enabled:
-                await self.bot.change_presence(activity=self.bot.saved_activity, status=self.bot.saved_status)
-                if not self.bot.status_task or self.bot.status_task.done():
-                    self.bot.status_task = self.bot.loop.create_task(self.change_status_periodically())
-            else:
-                await self.bot.change_presence(activity=None, status=discord.Status.online)
-
-            status_message = "inactive, profile is online and messages will not delete."
-
-        self.bot.save_config()
-        await self.bot.send_and_clean(message.channel, status_message)
-
-    @owner_only()
-    async def cmd_statustoggle(self, message, command_args=""):
-        if self.bot.status_enabled:
-            if self.bot.status_task:
-                self.bot.status_task.cancel()
-                self.bot.status_task = None
-            self.bot.status_enabled = False
-            self.bot.save_config()
-            await self.bot.change_presence(activity=None, status=discord.Status.online) 
-            await self.bot.send_and_clean(message.channel, "status messages are now off")
-        else:
-            self.bot.status_task = self.bot.loop.create_task(self.change_status_periodically())
-            self.bot.status_enabled = True
-            self.bot.save_config()
-            await self.bot.send_and_clean(message.channel, "status messages are now on")
-
-    async def change_status_periodically(self):
-        status_messages = [
-            "nuxified straight to you", #1
-            "playing with hexxedspider", #2
-            "hell blunt", #3
-            "nux help (limited access)", #4
-            "im probably sleeping or something", #5
-            "nuxified: v4mpire + cl9udempire", #6
-            "it's pronounced \"cloud 9 empire\", not \"clnineoud empire\"", #7
-            "i think ive had enough of you", #8
-            "i love headlessryn", #9
-            "i got my hands on you , and i aint letting go", #10
-            "i change this every minute cause im just like that", #11
-            "dont you miss me", #12
-            "im the man and im in my prime", #13
-            "the raven is watching", #14
-            "github coming soon (it is not) (probably) (it came out)", #15
-            "i know you missed me", #16
-            "felt silly and ended up blowing my head off", #17 
-            "autistic echo chamber", #18
-            "fuck", #19
-            "im coming straight from hell with love", #19
-            "i lo", #20
-            "one status is 'i lo' when i meant to type i love you", #21
-            "nah twin she got u blushin twin ah hell naw twin", #22
-            "new update is insane", #23
-            "hexxedspider situation is crazy", #24
-            "why the fuck u peepin my status", #25
-            "i have a ai responder, just ping me", #26
-            "@headlessryn on instagram <3", #27
-            "hexxedspider.github.io", #28
-            "headlessryn.github.io (peep the tos)", #29
-            "nukumoxy.netlify.app for errors", #30
-            "bruh", #31
-            "this account is on github", #32
-            "github.com/hexxedspider/nuxified", #33
-            "rip to @hexxedspider but we up", #34
-            "rest in peace my beloved", #35
-            "rest in pieces my beloved", #36
-            "im always online", #37
-            "if im offline then something's wrong", #38
-            "if you want me to put something as my status just ask", #39
-            "i can put whatever you want as my status if u ask", #40
-            "like did u get the memo", #41
-            "g59 on top", #42
-            "whole lotta grey", #43
-            "i dont do this", #44
-            "i love my 6th grade gf", #45
-            "message me something you want me to make my status", #46
-            "i change this every minute btw", #47
-            "HOW THE FUCK YOU GET BANNED FROM SPOTIFY", #48
-            "im not active often", #49
-            "we love casting spells", #50
-            "i will add whatever you want here", #51
-            "discord.gg/dEnF55hgaG - free movies + shows (owned by me!)", #52
-            "the mitochondria is the powerhouse of the cell", #53
-            "in my room!", #54
-            "if i do, she may come to life", #55
-            "spidergang, choppa cough!", #56
-            "spidergang", #57
-            "lil dvrkie!", #58
-            "join up - https://discord.gg/eAmEAhKZhJ", #59
-            "take my knife and carve the initals", #60
-            "where is darkie?", #61
-            "tf u mean meltdown\nlike autism or smth", #62
-            "\"sigmas got a major hand on the war field\"", #63
-            "\"I think we should do a treaty between Kingdom of shrimps and sigmas\"", #64
-            "big dinosaur teeth", #65
-            "Bubbles!", #66
-            "Cheat Code Fanny magnet activated", #67
-            "this is more than a sick love story", #68
-            "love, i cant ignore you", #69
-            "do anything for you", #70
-            "spotify.com/playlist/7t0InrUUJIlkExhF6b2r4B?si=03052a278395491f", #71
-            "as of nov 15th my status changes every 30 seconds" #72
-        ]
-        while True:
-            new_status = self.bot.rand.choice(status_messages)
-            await self.bot.change_presence(activity=discord.CustomActivity(name=new_status), status=discord.Status.online)
-            await asyncio.sleep(30)
-
-    async def handle_voice_state_update(self, member, before, after):
-        if member.id == self.bot.user.id:
-            return
-
-        if not hasattr(member, 'guild') or not member.guild:
-            return
-
-        if member.guild.id not in self.bot.voice_watch_enabled:
-            return
-
-        if before.channel is None and after.channel is not None:
-            print(f"[Voice Watch] {member} joined {after.channel.name} in {member.guild.name}")
-
-        elif before.channel is not None and after.channel is None:
-            print(f"[Voice Watch] {member} left {before.channel.name} in {member.guild.name}")
-
-        elif before.channel is not None and after.channel is not None and before.channel != after.channel:
-            print(f"[Voice Watch] {member} moved from {before.channel.name} to {after.channel.name} in {member.guild.name}")
-
-    async def on_member_join_handler(self, member):
-        if member.guild.id in self.bot.tracked_joins:
-            print(f"[Join Watch] {member} joined {member.guild.name}")
-            if self.bot.join_webhook:
-                pass
 
     async def cmd_habit(self, message, command_args):
         phrase = command_args.strip().lower()
@@ -1397,21 +887,21 @@ class Utilities:
     async def cmd_timezone(self, message, command_args):
         if not message.mentions:
             return await self.bot.send_and_clean(message.channel, "mention a user")
-        
+
         user = message.mentions[0]
         hour_activity = collections.Counter()
-        
+
         try:
             async for msg in message.channel.history(limit=5000):
                 if msg.author.id == user.id:
                     hour_activity[msg.created_at.hour] += 1
-            
+
             if not hour_activity:
                 return await self.bot.send_and_clean(message.channel, "no activity found for user")
-            
+
             img = Image.new('RGB', (600, 200), 'white')
             draw = ImageDraw.Draw(img)
-            
+
             max_count = max(hour_activity.values())
             for hour in range(24):
                 count = hour_activity.get(hour, 0)
@@ -1419,17 +909,117 @@ class Utilities:
                 color = (intensity, 255, intensity)
                 draw.rectangle([hour * 25, 0, (hour + 1) * 25, 100], fill=color)
                 draw.text((hour * 25 + 5, 110), str(hour), fill='black')
-            
+
             output = io.BytesIO()
             img.save(output, format='PNG')
             output.seek(0)
-            
+
             await self.bot.send_and_clean(message.channel, f"activity peaks for {user.name}:", file=discord.File(output, 'timezone.png'))
         except Exception as e:
             await self.bot.send_and_clean(message.channel, f"error: {e}")
 
+    def _load_custom_commands(self):
+        try:
+            with open("custom_commands.json", "r") as f:
+                return json.load(f)
+        except:
+            return {}
+
+    def _save_custom_commands(self, commands):
+        with open("custom_commands.json", "w") as f:
+            json.dump(commands, f, indent=2)
+
+    async def cmd_addcmd(self, message, command_args):
+        if message.author.id != self.bot.owner_id:
+            return await self.bot.send_and_clean(message.channel, "only owner can use this command")
+
+        parts = command_args.split(maxsplit=1)
+        if len(parts) < 2:
+            return await self.bot.send_and_clean(message.channel, "usage: nux addcmd <name> <response>")
+        
+        name = parts[0].lower()
+        response = parts[1]
+        
+        commands = self._load_custom_commands()
+        commands[name] = response
+        self._save_custom_commands(commands)
+        
+        await self.bot.send_and_clean(message.channel, f"added custom command '{name}'")
+
+    async def cmd_delcmd(self, message, command_args):
+        if message.author.id != self.bot.owner_id:
+            return await self.bot.send_and_clean(message.channel, "only owner can use this command")
+
+        name = command_args.strip().lower()
+        if not name:
+            return await self.bot.send_and_clean(message.channel, "usage: nux delcmd <name>")
+        
+        commands = self._load_custom_commands()
+        if name not in commands:
+            return await self.bot.send_and_clean(message.channel, f"command '{name}' not found")
+        
+        del commands[name]
+        self._save_custom_commands(commands)
+        await self.bot.send_and_clean(message.channel, f"deleted custom command '{name}'")
+
+    async def cmd_listcmds(self, message, command_args=""):
+        if message.author.id != self.bot.owner_id:
+            return await self.bot.send_and_clean(message.channel, "only owner can use this command")
+
+        commands = self._load_custom_commands()
+        if not commands:
+            return await self.bot.send_and_clean(message.channel, "no custom commands")
+        
+        cmd_list = "\n".join([f"- {name}: {response[:50]}{'...' if len(response) > 50 else ''}" for name, response in commands.items()])
+        await self.bot.send_and_clean(message.channel, f"custom commands:\n{cmd_list}")
+
+    async def handle_custom_command(self, message, cmd_name):
+        commands = self._load_custom_commands()
+        if cmd_name.lower() in commands:
+            await self.bot.send_and_clean(message.channel, commands[cmd_name.lower()])
+            return True
+        return False
+
+    def _load_affix_settings(self):
+        try:
+            with open("affix_settings.json", "r") as f:
+                return json.load(f)
+        except:
+            return {"prefix": "", "suffix": "", "enabled": False}
+
+    def _save_affix_settings(self, settings):
+        with open("affix_settings.json", "w") as f:
+            json.dump(settings, f, indent=2)
+
+    async def handle_affix_message(self, message):
+        settings = self._load_affix_settings()
+        if not settings.get("enabled"):
+            return False
+        if not settings.get("prefix") and not settings.get("suffix"):
+            return False
+        if message.content.startswith("nux "):
+            return False
+
+        response_keywords = ["set to:", "enabled", "disabled", "cleared", "added", "deleted", "removed", "stopped", "started", "changed to", "nickname changed", "backup saved", "git pull", "left guild", "message sent", "finished", "burst deleted", "spamming", "stopped deleting", "started deletions", "prefix cleared", "suffix cleared", "affix enabled", "affix disabled"]
+        if any(keyword in message.content.lower() for keyword in response_keywords):
+            return False
+
+        prefix = settings.get('prefix', '')
+        if prefix and message.content.startswith(prefix):
+            return False
+
+        suffix = settings.get('suffix', '')
+        if suffix and message.content.endswith(suffix):
+            return False
+
+        new_content = f"{prefix}{message.content}{suffix}"
+        try:
+            await message.delete()
+            await message.channel.send(new_content)
+            return True
+        except:
+            return False
+
 def setup(bot):
     util_cog = Utilities(bot)
-    bot.handle_voice_state_update = util_cog.handle_voice_state_update
-    bot.on_member_join_handler = util_cog.on_member_join_handler
     return util_cog, HELP_TEXT
