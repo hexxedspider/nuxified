@@ -25,3 +25,6 @@ slowburn_stories/
 
 affix_settings.json
 **/custom_commands.json
+
+# marketplace submission bot: https://discord.gg/DH2KHqS2hq
+mp_sub.py

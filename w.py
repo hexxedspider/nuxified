@@ -8,7 +8,7 @@ from watchdog.events import FileSystemEventHandler
 
 class RestartHandler(FileSystemEventHandler):
     def __init__(self, scripts):
-        self.scripts = scripts  # list of bot scripts
+        self.scripts = scripts
         self.processes = {}
         self.kill_existing_bots()
         self.start_bots()
@@ -22,7 +22,7 @@ class RestartHandler(FileSystemEventHandler):
                     if result.returncode == 0:
                         lines = result.stdout.strip().split('\n')
                         for line in lines[1:]:
-                            if 'nuxified.py' in line:
+                            if 'nuxified.py' in line or 'mp_sub.py' in line:
                                 parts = line.split(',')
                                 if len(parts) >= 2:
                                     pid = parts[1].strip('"')
@@ -34,24 +34,25 @@ class RestartHandler(FileSystemEventHandler):
                 except:
                     pass
             else:
-                try:
-                    result = subprocess.run(['pgrep', '-f', 'nuxified.py'],
-                                          capture_output=True, text=True, check=False)
-                    if result.returncode == 0:
-                        pids = result.stdout.strip().split('\n')
-                        for pid in pids:
-                            if pid.strip():
-                                try:
-                                    os.kill(int(pid), signal.SIGTERM)
-                                    time.sleep(0.5)
+                for script in self.scripts:
+                    try:
+                        result = subprocess.run(['pgrep', '-f', script],
+                                              capture_output=True, text=True, check=False)
+                        if result.returncode == 0:
+                            pids = result.stdout.strip().split('\n')
+                            for pid in pids:
+                                if pid.strip():
                                     try:
-                                        os.kill(int(pid), signal.SIGKILL)
+                                        os.kill(int(pid), signal.SIGTERM)
+                                        time.sleep(0.5)
+                                        try:
+                                            os.kill(int(pid), signal.SIGKILL)
+                                        except (ProcessLookupError, OSError):
+                                            pass
                                     except (ProcessLookupError, OSError):
                                         pass
-                                except (ProcessLookupError, OSError):
-                                    pass
-                except:
-                    pass
+                    except:
+                        pass
         except Exception as e:
             print(f"Warning: Could not kill existing bot instances: {e}")
 
@@ -73,6 +74,10 @@ class RestartHandler(FileSystemEventHandler):
 if __name__ == "__main__":
     path = "."
     bot_scripts = ["nuxified.py"]
+
+    if os.path.exists("mp_sub.py"):
+        bot_scripts.append("mp_sub.py")
+
     event_handler = RestartHandler(bot_scripts)
     observer = Observer()
     observer.schedule(event_handler, path=path, recursive=True)

@@ -38,7 +38,12 @@ HELP_TEXT = { # NOT USED, ONLY SO COMMANDS ARE REGISTERED
         "nux autoowod <start|stop>": "auto owo daily",
         "nux config": "show current config",
         "nux ghost": "toggle ghost mode",
-        "nux statustoggle": "toggle status rotation"
+        "nux statustoggle": "toggle status rotation",
+        "nux webhook <set|assign|list|delete> ...": "manage webhooks for different features",
+        "nux marketplace": "browse community extensions from the LLC marketplace",
+        "nux marketplace info <id>": "get detailed info about a marketplace extension",
+        "nux marketplace install <id>": "install a community extension",
+        "nux marketplace submit": "get invite link to submit extensions"
     }
 }
 
@@ -94,9 +99,12 @@ class Owner:
             "- `nux ai setup` sets up the ai personality for openrouter (dm only)\n"
             "- `nux ai preset <preset_name>` loads a saved ai personality preset (dm only)\n"
             "- `nux config` shows the current confg, and ai config.\n"
-            "- `nux weatherip` enables/disables ip geolocation for weather command, off by default to avoid accidental doxxing"
-            "- `nux cdm` starts deleting all messages sent by me in the current channel - run again to stop"
-            "- `nux burstcdm` deletes the last 5 messages sent by me in the current channel"
+            "- `nux weatherip` enables/disables ip geolocation for weather command, off by default to avoid accidental doxxing\n"
+            "- `nux cdm` starts deleting all messages sent by me in the current channel - run again to stop\n"
+            "- `nux burstcdm` deletes the last 5 messages sent by me in the current channel\n"
+            "- `nux statustoggle` turn the status switcher on/off.\n-# Change what statuses are said in owner.py.\n"
+            "- `nux webhook <set|assign|list|delete> ...`: manage webhooks for different features\n"
+            
         )
         await self.bot.send_and_clean(message.channel, help_text)
 
@@ -657,7 +665,7 @@ class Owner:
         if not self.check_owner(message): return
 
         if not command_args or command_args.lower() in ["status", "stat"]:
-            if not self.bot.join_webhook:
+            if "join" not in self.bot.webhook_assignments or self.bot.webhook_assignments["join"] not in self.bot.webhooks:
                 await self.bot.send_and_clean(message.channel, "no join webhook set")
                 return
             embed = {
@@ -665,29 +673,23 @@ class Owner:
                 "description": "this is a test message for the join webhook",
                 "color": 0x00ff00
             }
-            try:
-                async with aiohttp.ClientSession() as session:
-                    payload = {
-                        "username": "nux worker test",
-                        "avatar_url": self.bot.user.avatar.url if self.bot.user.avatar else None,
-                        "embeds": [embed]
-                    }
-                    resp = await session.post(self.bot.join_webhook, json=payload)
-                    if resp.status == 204:
-                        await self.bot.send_and_clean(message.channel, "join webhook is set and working")
-                    else:
-                        await self.bot.send_and_clean(message.channel, "join webhook is set but not working (check url)")
-            except Exception as e:
-                await self.bot.send_and_clean(message.channel, f"join webhook is set but error: {e}")
+            payload = {
+                "username": "nux worker test",
+                "avatar_url": self.bot.user.avatar.url if self.bot.user.avatar else None,
+                "embeds": [embed]
+            }
+            await self.bot.send_to_webhook("join", payload)
+            await self.bot.send_and_clean(message.channel, "join webhook test sent")
         else:
             webhook_url = command_args.strip()
             if not webhook_url:
                 await self.bot.send_and_clean(message.channel, "provide a webhook url")
                 return
-            if not webhook_url.startswith("https://discordapp.com/api/webhooks/") and not webhook_url.startswith("https://discord.com/api/webhooks/"):
+            if not (webhook_url.startswith("https://") and "/api/webhooks/" in webhook_url):
                 await self.bot.send_and_clean(message.channel, "provide a valid discord webhook url")
                 return
-            self.bot.join_webhook = webhook_url
+            self.bot.webhooks["join"] = webhook_url
+            self.bot.webhook_assignments["join"] = "join"
             self.bot.save_config()
             await self.bot.send_and_clean(message.channel, "join notification webhook set")
 
@@ -975,11 +977,329 @@ class Owner:
         elif before.channel is not None and after.channel is not None and before.channel != after.channel:
             print(f"[Voice Watch] {member} moved from {before.channel.name} to {after.channel.name} in {member.guild.name}")
 
+    async def cmd_webhook(self, message, command_args):
+        if not self.check_owner(message): return
+
+        parts = command_args.split()
+
+        if not parts or parts[0].lower() == "help":
+            help_msg = (
+                "Webhook management commands:\n"
+                "`nux webhook set <name> <url>` - Set a named webhook URL\n"
+                "`nux webhook assign <feature> <name>` - Assign a webhook to a feature\n"
+                "`nux webhook list` - Show all webhooks and assignments\n"
+                "`nux webhook delete <name>` - Remove a webhook\n"
+                "`nux webhook help` - Show this help\n\n"
+                "Features: dm (DM messages), load (bot startup), join (member joins)\n"
+                "Example: `nux webhook set myhook https://discord.com/api/webhooks/...` then `nux webhook assign dm myhook`"
+            )
+            await self.bot.send_and_clean(message.channel, help_msg)
+            return
+
+        subcmd = parts[0].lower()
+
+        if subcmd == "set":
+            if len(parts) < 3:
+                await self.bot.send_and_clean(message.channel, "usage: nux webhook set <name> <url>")
+                return
+
+            name = parts[1]
+            url = ' '.join(parts[2:])
+
+            if not url.startswith("https://"):
+                await self.bot.send_and_clean(message.channel, "url must start with https://")
+                return
+            if "/api/webhooks/" not in url:
+                await self.bot.send_and_clean(message.channel, "url must be a valid webhook url containing /api/webhooks/")
+                return
+
+            self.bot.webhooks[name] = url
+            self.bot.save_config()
+            await self.bot.send_and_clean(message.channel, f"webhook '{name}' set")
+
+        elif subcmd == "assign":
+            if len(parts) < 3:
+                await self.bot.send_and_clean(message.channel, "usage: nux webhook assign <feature> <name>")
+                return
+
+            feature = parts[1]
+            name = parts[2]
+
+            if name not in self.bot.webhooks:
+                await self.bot.send_and_clean(message.channel, f"webhook '{name}' not found")
+                return
+
+            self.bot.webhook_assignments[feature] = name
+            self.bot.save_config()
+            await self.bot.send_and_clean(message.channel, f"assigned webhook '{name}' to feature '{feature}'")
+
+        elif subcmd == "list":
+            webhooks = "\n".join([f"{name}: {url}" for name, url in self.bot.webhooks.items()]) if self.bot.webhooks else "No webhooks set"
+            assignments = "\n".join([f"{feat}: {name}" for feat, name in self.bot.webhook_assignments.items()]) if self.bot.webhook_assignments else "No assignments"
+
+            msg = f"**Webhooks:**\n{webhooks}\n\n**Assignments:**\n{assignments}"
+            await self.bot.send_and_clean(message.channel, msg)
+
+        elif subcmd == "delete":
+            if len(parts) < 2:
+                await self.bot.send_and_clean(message.channel, "usage: nux webhook delete <name>")
+                return
+
+            name = parts[1]
+
+            if name in self.bot.webhooks:
+                del self.bot.webhooks[name]
+                self.bot.webhook_assignments = {k:v for k,v in self.bot.webhook_assignments.items() if v != name}
+                self.bot.save_config()
+                await self.bot.send_and_clean(message.channel, f"deleted webhook '{name}'")
+            else:
+                await self.bot.send_and_clean(message.channel, f"webhook '{name}' not found")
+
+        else:
+            await self.bot.send_and_clean(message.channel, f"unknown subcommand '{subcmd}'. Use `nux webhook help` for usage.")
+
+    async def cmd_marketplace(self, message, command_args=""):
+        """Browse available community extensions from the LLC marketplace"""
+        if not self.check_owner(message): return
+
+        await self.bot.send_and_clean(message.channel,
+            "**WARNING**: These are community-made extensions. I cannot 100% guarantee their safety or functionality. Use at your own risk!\n\n"
+            "Loading marketplace..."
+        )
+
+        try:
+            server_id = 1371333297669537893
+            channel_id = 1443400773353472060
+
+            server = self.bot.get_guild(server_id)
+            if not server:
+                return await self.bot.send_and_clean(message.channel, "Unable to access marketplace server")
+
+            channel = server.get_channel(channel_id)
+            if not channel:
+                return await self.bot.send_and_clean(message.channel, "Marketplace channel not found")
+
+            extensions = []
+            async for msg in channel.history(limit=100):
+                if msg.embeds:
+                    embed = msg.embeds[0]
+                    if embed.title and embed.description:
+                        extension_id = None
+                        github_url = None
+
+                        title_lower = embed.title.lower()
+                        desc_lower = embed.description.lower()
+
+                        import re
+                        id_match = re.search(r'\b([a-zA-Z0-9]{8})\b', title_lower + ' ' + desc_lower)
+                        if id_match:
+                            extension_id = id_match.group(1).upper()
+
+                        if embed.fields:
+                            for field in embed.fields:
+                                if 'github' in field.name.lower() or 'download' in field.name.lower():
+                                    github_match = re.search(r'https://github\.com/[^\s]+', field.value)
+                                    if github_match:
+                                        github_url = github_match.group(0)
+                                        break
+
+                        github_match = re.search(r'https://github\.com/[^\s]+', embed.description)
+                        if github_match:
+                            github_url = github_match.group(0)
+
+                        if extension_id and github_url:
+                            extensions.append({
+                                'id': extension_id,
+                                'title': embed.title,
+                                'description': embed.description[:200] + '...' if len(embed.description) > 200 else embed.description,
+                                'github_url': github_url,
+                                'message_url': msg.jump_url
+                            })
+
+            if not extensions:
+                return await self.bot.send_and_clean(message.channel, "No extensions found in marketplace")
+
+            response = "**Community Marketplace Extensions**\n\n"
+            for ext in extensions[:10]:
+                response += f"**{ext['id']}** - {ext['title']}\n{ext['description']}\n\n"
+
+            if len(extensions) > 10:
+                response += f"... and {len(extensions) - 10} more\n\n"
+
+            response += "Use `nux marketplace info <ID>` for details or `nux marketplace install <ID>` to install"
+
+            await self.bot.send_and_clean(message.channel, response)
+
+        except Exception as e:
+            await self.bot.send_and_clean(message.channel, f"Error loading marketplace: {e}")
+
+    async def cmd_marketplace_info(self, message, command_args):
+        """Get detailed info about a marketplace extension"""
+        if not self.check_owner(message): return
+
+        if not command_args:
+            return await self.bot.send_and_clean(message.channel, "Usage: nux marketplace info <extension_id>")
+
+        extension_id = command_args.strip().upper()
+
+        try:
+            server_id = 1371333297669537893
+            channel_id = 1443400773353472060
+
+            server = self.bot.get_guild(server_id)
+            if not server:
+                return await self.bot.send_and_clean(message.channel, "Unable to access marketplace server")
+
+            channel = server.get_channel(channel_id)
+            if not channel:
+                return await self.bot.send_and_clean(message.channel, "Marketplace channel not found")
+
+            async for msg in channel.history(limit=100):
+                if msg.embeds:
+                    embed = msg.embeds[0]
+                    if embed.title and embed.description:
+                        content = (embed.title + ' ' + embed.description).lower()
+                        if extension_id.lower() in content:
+                            github_url = None
+                            import re
+                            github_match = re.search(r'https://github\.com/[^\s]+', embed.description)
+                            if github_match:
+                                github_url = github_match.group(0)
+
+                            response = f"**Extension: {embed.title}**\n\n"
+                            response += f"**ID:** {extension_id}\n"
+                            response += f"**Description:**\n{embed.description}\n\n"
+                            if github_url:
+                                response += f"**GitHub:** {github_url}\n"
+                            response += f"**Message:** {msg.jump_url}\n\n"
+                            response += "**Safety Warning**: This is community code. Review it before installing!"
+
+                            await self.bot.send_and_clean(message.channel, response)
+                            return
+
+            await self.bot.send_and_clean(message.channel, f"Extension '{extension_id}' not found")
+
+        except Exception as e:
+            await self.bot.send_and_clean(message.channel, f"Error getting extension info: {e}")
+
+    async def cmd_marketplace_install(self, message, command_args):
+        """Install a community extension with confirmation"""
+        if not self.check_owner(message): return
+
+        if not command_args:
+            return await self.bot.send_and_clean(message.channel, "Usage: nux marketplace install <extension_id>")
+
+        extension_id = command_args.strip().upper()
+
+        confirm_msg = await self.bot.send_and_clean(message.channel,
+            f"**INSTALLATION CONFIRMATION**\n\n"
+            f"You are about to install extension '{extension_id}' from the community marketplace.\n\n"
+            "**WARNINGS:**\n"
+            "• This code comes from unverified community members\n"
+            "• It may contain malicious code or bugs\n"
+            "• It could compromise your bot or data\n"
+            "• The creator cannot provide support or guarantees\n\n"
+            f"React with ✅ to proceed or ❌ to cancel"
+        )
+
+        await confirm_msg.add_reaction("✅")
+        await confirm_msg.add_reaction("❌")
+
+        def check(reaction, user):
+            return user == message.author and str(reaction.emoji) in ["✅", "❌"] and reaction.message.id == confirm_msg.id
+
+        try:
+            reaction, user = await self.bot.wait_for('reaction_add', timeout=30.0, check=check)
+
+            if str(reaction.emoji) == "❌":
+                await self.bot.send_and_clean(message.channel, "Installation cancelled")
+                return
+
+        except asyncio.TimeoutError:
+            await self.bot.send_and_clean(message.channel, "Installation timed out")
+            return
+
+        await self.bot.send_and_clean(message.channel, "Installing extension...")
+
+        try:
+            server_id = 1371333297669537893
+            channel_id = 1443400773353472060
+
+            server = self.bot.get_guild(server_id)
+            if not server:
+                return await self.bot.send_and_clean(message.channel, "Unable to access marketplace server")
+
+            channel = server.get_channel(channel_id)
+            if not channel:
+                return await self.bot.send_and_clean(message.channel, "Marketplace channel not found")
+
+            extension_data = None
+            async for msg in channel.history(limit=100):
+                if msg.embeds:
+                    embed = msg.embeds[0]
+                    if embed.title and embed.description:
+                        content = (embed.title + ' ' + embed.description).lower()
+                        if extension_id.lower() in content:
+                            import re
+                            github_match = re.search(r'https://github\.com/[^\s]+', embed.description)
+                            if github_match:
+                                extension_data = {
+                                    'title': embed.title,
+                                    'github_url': github_match.group(0)
+                                }
+                            break
+
+            if not extension_data:
+                return await self.bot.send_and_clean(message.channel, f"Extension '{extension_id}' not found")
+
+            github_url = extension_data['github_url']
+            repo_name = github_url.split('/')[-1]
+            await self.bot.send_and_clean(message.channel,
+                f"Extension '{extension_data['title']}' found!\n"
+                f"GitHub: {github_url}\n\n"
+                "**Note**: Full GitHub repo installation not yet implemented.\n"
+                "Please download manually from the GitHub link above and place in the `extensions/` folder.\n\n"
+                "The extension will be loaded automatically on next restart."
+            )
+
+        except Exception as e:
+            await self.bot.send_and_clean(message.channel, f"Installation failed: {e}")
+
+    async def cmd_marketplace_submit(self, message, command_args=""):
+        """Get invite link for marketplace submissions"""
+        if not self.check_owner(message): return
+
+        invite_link = "https://discord.gg/DH2KHqS2hq"
+        await self.bot.send_and_clean(message.channel,
+            f"**Submit Community Extensions**\n\n"
+            f"Want to share your nuxified extensions with the community?\n\n"
+            f"**Submission Guidelines:**\n"
+            f"- Create a GitHub repository with your extension\n"
+            f"- Follow the template in `extensions/__init__.py`\n"
+            f"- Test thoroughly before submitting\n\n"
+            f"**Submit Here:** {invite_link}\n\n"
+            f"Join the LLC server and post in the marketplace channel with:\n"
+            f"- Extension title\n"
+            f"- Short description\n"
+            f"- GitHub repository link"
+        )
+
     async def on_member_join_handler(self, member):
         if member.guild.id in self.bot.tracked_joins:
             print(f"[Join Watch] {member} joined {member.guild.name}")
-            if self.bot.join_webhook:
-                pass
+            embed = {
+                "title": f"Member Joined",
+                "description": f"{member} joined {member.guild.name}",
+                "color": 0x00ff00,
+                "timestamp": member.joined_at.isoformat() if member.joined_at else None,
+                "thumbnail": {"url": member.avatar.url if member.avatar else None}
+            }
+            payload = {
+                "username": "Join Watcher",
+                "avatar_url": self.bot.user.avatar.url if self.bot.user.avatar else None,
+                "embeds": [embed]
+            }
+            await self.bot.send_to_webhook("join", payload)
 
 def setup(bot):
     owner_cog = Owner(bot)

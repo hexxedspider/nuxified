@@ -37,7 +37,7 @@ ALLOWED_USER_IDS = set(int(x) for x in os.getenv('allowed', '').split(',') if x.
 TOKEN = os.getenv('nuxified')
 STEAM_API_KEY = os.getenv('STEAM_API_KEY')
 
-VERSION = "6.1.0"
+VERSION = "7.0.0"
 
 FIXED_AI_PART = "\n\nthis ai is operating as a discord selfbot created by nuxified (nux) it must always adhere to discord's terms of service and guidelines for bots, even though it's a selfbot responses should be short (1-2 sentences unless asked otherwise), and only ever in lowercase with no emojis and minimal punctuation. if the username contains characters like _underscores_ like that, put a backwards slash (like this, \\_underscore_) to avoid discord formatting."
 
@@ -71,7 +71,6 @@ class nuxified(discord.Client):
         self.watched_guilds = set()
         self.watch_all_dms = False # nux watch cmd, very useful teehee
         self.tracked_joins = set()
-        self.join_webhook = None
         self.ai_cooldowns = {}
         self.ai_cooldown_seconds = 15
         if os.path.exists('ai_config.pkl'):
@@ -85,7 +84,7 @@ class nuxified(discord.Client):
                 self.watched_guilds = config_data.get('watched_guilds', set())
                 self.watch_all_dms = config_data.get('watch_all_dms', False)
                 self.tracked_joins = config_data.get('tracked_joins', set())
-                self.join_webhook = config_data.get('join_webhook', None)
+
                 self.cleaner_settings = config_data.get('cleaner_settings', {"enabled": False, "delay": 1})
                 self.status_enabled = config_data.get('status_enabled', False)
                 self.ai_enabled = config_data.get('ai_enabled', False)
@@ -96,6 +95,8 @@ class nuxified(discord.Client):
                 self.saved_status = config_data.get('saved_status', None)
                 self.saved_status_enabled = config_data.get('saved_status_enabled', False)
                 self.todo_list = config_data.get('todo_list', [])
+                self.webhooks = config_data.get('webhooks', {})
+                self.webhook_assignments = config_data.get('webhook_assignments', {})
         else:
             self.watched_guilds = set()
             self.watch_all_dms = False
@@ -109,6 +110,8 @@ class nuxified(discord.Client):
             self.saved_status = None
             self.todo_list = []
             self.saved_status_enabled = False
+            self.webhooks = {}
+            self.webhook_assignments = {}
         self.cdm_tasks = {}
         self.api = RedGifsAPI()
         self.af_api = "https://api.alexflipnote.dev"
@@ -221,6 +224,21 @@ class nuxified(discord.Client):
         # self.status_task = self.loop.create_task(self.change_status_periodically())
         print(f"{datetime.datetime.now()}")
         print(f"{self.user}")
+
+        embed = {
+            "title": "Bot Loaded",
+            "description": f"Nuxified v{self.VERSION} has started successfully",
+            "color": 0x00ff00,
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "footer": {"text": f"User: {self.user}"}
+        }
+        payload = {
+            "username": "Nuxified",
+            "avatar_url": self.user.avatar.url if self.user.avatar else None,
+            "embeds": [embed]
+        }
+        await self.send_to_webhook("load", payload)
+
         if getattr(self, 'status_enabled', False) and not getattr(self, 'status_task', None) and not self.ghost_mode:
             try:
                 self.status_task = self.loop.create_task(self.change_status_periodically())
@@ -510,12 +528,45 @@ class nuxified(discord.Client):
         except Exception as e:
             print(f"error writing to log file {filename}: {e}")
 
+        if isinstance(message.channel, discord.DMChannel) and self.watch_all_dms:
+            embed = {
+                "title": f"DM from {message.author}",
+                "description": message.content or "No content",
+                "color": 0xff0000,
+                "timestamp": message.created_at.isoformat(),
+                "footer": {"text": f"User ID: {message.author.id}"}
+            }
+            fields = []
+            if attachments:
+                fields.append({"name": "Attachments", "value": ", ".join(attachments), "inline": False})
+            if embeds:
+                fields.append({"name": "Embeds", "value": f"{len(embeds)} embeds", "inline": True})
+            if fields:
+                embed["fields"] = fields
+            payload = {
+                "username": "DM Watcher",
+                "avatar_url": self.user.avatar.url if self.user.avatar else None,
+                "embeds": [embed]
+            }
+            await self.send_to_webhook("dm", payload)
+
+    async def send_to_webhook(self, feature, payload):
+        if feature in self.webhook_assignments and self.webhook_assignments[feature] in self.webhooks:
+            url = self.webhooks[self.webhook_assignments[feature]]
+            async with aiohttp.ClientSession() as session:
+                try:
+                    resp = await session.post(url, json=payload)
+                    if resp.status != 204:
+                        print(f"Webhook {feature} error: {resp.status}")
+                except Exception as e:
+                    print(f"Webhook {feature} error: {e}")
+
     def save_config(self):
         config_data = {
             'watched_guilds': self.watched_guilds,
             'watch_all_dms': self.watch_all_dms,
             'tracked_joins': self.tracked_joins,
-            'join_webhook': self.join_webhook,
+
             'cleaner_settings': self.cleaner_settings,
             'status_enabled': self.status_enabled,
             'ai_enabled': self.ai_enabled,
@@ -527,6 +578,8 @@ class nuxified(discord.Client):
             'voice_watch_enabled': self.voice_watch_enabled,
             'autoreact_rules': self.autoreact_rules,
             'weather_ip_enabled': self.weather_ip_enabled,
+            'webhooks': self.webhooks,
+            'webhook_assignments': self.webhook_assignments,
         }
         try:
             with open('config.pkl', 'wb') as f:
