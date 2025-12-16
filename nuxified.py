@@ -4,7 +4,7 @@
 # they have not been updated since like october lol
 # it's in a seperate folder since they don't really matter to me, hence why i don't keep them updated, and dont bother trying to update them... not that you'd know anyway.
 
-import discord, asyncio, random, aiohttp, datetime, io, qrcode, requests, base64, math, yt_dlp, os, logging, re, psutil, platform, subprocess, sys, json, hashlib, urllib.parse, uuid, importlib.util
+import discord, asyncio, random, aiohttp, datetime, io, qrcode, requests, base64, math, yt_dlp, os, logging, re, psutil, platform, subprocess, sys, json, hashlib, urllib.parse, uuid, importlib.util, difflib
 from gtts import gTTS
 from redgifs import API as RedGifsAPI
 from pyfiglet import figlet_format
@@ -37,7 +37,7 @@ ALLOWED_USER_IDS = set(int(x) for x in os.getenv('allowed', '').split(',') if x.
 TOKEN = os.getenv('nuxified')
 STEAM_API_KEY = os.getenv('STEAM_API_KEY')
 
-VERSION = "7.0.0"
+VERSION = "7.1.0"
 
 FIXED_AI_PART = "\n\nthis ai is operating as a discord selfbot created by nuxified (nux) it must always adhere to discord's terms of service and guidelines for bots, even though it's a selfbot responses should be short (1-2 sentences unless asked otherwise), and only ever in lowercase with no emojis and minimal punctuation. if the username contains characters like _underscores_ like that, put a backwards slash (like this, \\_underscore_) to avoid discord formatting."
 
@@ -297,6 +297,23 @@ class nuxified(discord.Client):
                 if utilities_instance and hasattr(utilities_instance, 'handle_custom_command'):
                     handled = await utilities_instance.handle_custom_command(message, custom_cmd_name)
                     if handled:
+                        try:
+                            await message.delete()
+                        except:
+                            pass
+                        return
+
+        # Fuzzy command suggestion
+        if not matched_command_key and lowered.startswith("nux "):
+            cmd_part = lowered[4:].strip()
+            if cmd_part:
+                nux_commands = [k for k in self.commands.keys() if k.startswith("nux ")]
+                if nux_commands:
+                    cmd_suffixes = [k[4:] for k in nux_commands]
+                    closest = difflib.get_close_matches(cmd_part, cmd_suffixes, n=1, cutoff=0.6)
+                    if closest:
+                        suggested = "nux " + closest[0]
+                        await self.send_and_clean(message.channel, f"did you mean '{suggested}'?")
                         try:
                             await message.delete()
                         except:
