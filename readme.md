@@ -7,8 +7,8 @@ A comprehensive, self-hosted Discord selfbot written in Python, designed for per
 ## Key Features
 
 - **AI Integration**: AI replies (once you set up the [free] OpenRouter API key) that activates on pings (DMS ONLY, SERVER PINGS DO NOT COUNT). Custom personality that you get to pick, and you can save presets for different styles.
-- **Many Commands**: 60+ commands right off rip!
-- **Locked commands**: Some commands (nux ocmds) are locked to owner only.
+- **Many Commands**: 150+ commands right off rip!
+- **Locked commands**: Some commands (nux ownercmds) are locked to owner only.
 - **Status Cycler**: It will change your status from a preset one (mine by default, you can swap it out at any point).
 
 ## Setup
@@ -17,7 +17,7 @@ pip requirements lol what'd you expect
 ```pip install -r requirements.txt```
 
 ### Notes
-Use Python 3.11.9 or another compatible version (ive tried 3.13 but it didn't work, but you could still try)
+Use Python 3.11.9 or another compatible version (there is a python library - audioop-lts - to make 3.12+ versions work!)
 pip for installing dependencies
 discord account (no shit) and user token (i can try making a tool for this if you have trouble!)
 
@@ -28,6 +28,7 @@ discord account (no shit) and user token (i can try making a tool for this if yo
     3.1. add user id's to allowed (yourself excluded) if you want other people to use the commands - optional.
     3.2. put your user token to run nuxified.
     3.3. add the openrouter api key (that you can get for free, all models i used and have listed are entirely free) to use the ai reply - optional.
+    3.4. add other api keys that you might want to use - optional.
 
 ### Running the Bot
 
@@ -35,6 +36,7 @@ what do you think?
 ```python nuxified.py```
 or, if you want to modify the code yourself and have it restart the script,
 ```python w.py```
+additonally, if you want to use a graphical interface instead of just an IDE and tapping files, use the launcher.py (either by a command or double tapping the file).
 
 ### Optional Setup
 - Place font files (.otf/.ttf) in the `dmfonts/` directory, or keep the ones I put.
@@ -46,7 +48,7 @@ All commands start with `nux ` prefix. Only three use `all`, but that's personal
 
 ## Disclaimer
 
-Discord selfbots violate their ToS. Use at your own risk. Never share your Discord token or account credentials. By using this script, you always run the risk of having your account locked, warned, suspended, or outright terminated. USE AT YOUR OWN RISK.
+Discord selfbots violate their ToS. Use at your own risk. Never share your Discord token or account credentials. By using this script, you always run the risk of having your account locked, warned, suspended, or outright terminated. USE AT YOUR OWN RISK. If you get banned or catch a violation, that's on you - not me.
 
 ## Configuration
 
