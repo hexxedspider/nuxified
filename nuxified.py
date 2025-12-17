@@ -37,7 +37,7 @@ ALLOWED_USER_IDS = set(int(x) for x in os.getenv('allowed', '').split(',') if x.
 TOKEN = os.getenv('nuxified')
 STEAM_API_KEY = os.getenv('STEAM_API_KEY')
 
-VERSION = "7.1.0"
+VERSION = "7.2.0"
 
 FIXED_AI_PART = "\n\nthis ai is operating as a discord selfbot created by nuxified (nux) it must always adhere to discord's terms of service and guidelines for bots, even though it's a selfbot responses should be short (1-2 sentences unless asked otherwise), and only ever in lowercase with no emojis and minimal punctuation. if the username contains characters like _underscores_ like that, put a backwards slash (like this, \\_underscore_) to avoid discord formatting."
 
@@ -97,6 +97,7 @@ class nuxified(discord.Client):
                 self.todo_list = config_data.get('todo_list', [])
                 self.webhooks = config_data.get('webhooks', {})
                 self.webhook_assignments = config_data.get('webhook_assignments', {})
+                self.auto_correct_enabled = config_data.get('auto_correct_enabled', False)
         else:
             self.watched_guilds = set()
             self.watch_all_dms = False
@@ -303,22 +304,43 @@ class nuxified(discord.Client):
                             pass
                         return
 
-        # Fuzzy command suggestion
-        if not matched_command_key and lowered.startswith("nux "):
-            cmd_part = lowered[4:].strip()
-            if cmd_part:
-                nux_commands = [k for k in self.commands.keys() if k.startswith("nux ")]
-                if nux_commands:
-                    cmd_suffixes = [k[4:] for k in nux_commands]
-                    closest = difflib.get_close_matches(cmd_part, cmd_suffixes, n=1, cutoff=0.6)
-                    if closest:
-                        suggested = "nux " + closest[0]
-                        await self.send_and_clean(message.channel, f"did you mean '{suggested}'?")
-                        try:
-                            await message.delete()
-                        except:
-                            pass
-                        return
+        if not matched_command_key:
+            words = lowered.split()
+            if words:
+                first_word = words[0]
+                rest = ' '.join(words[1:]) if len(words) > 1 else ""
+                prefix_similarity = difflib.SequenceMatcher(None, first_word, "nux").ratio()
+
+                if prefix_similarity > 0.6 and rest.strip():
+                    corrected_prefix = "nux"
+                    corrected_content = corrected_prefix + " " + rest
+                    cmd_part = rest.strip()
+                    nux_commands = [k for k in self.commands.keys() if k.startswith("nux ")]
+                    if nux_commands:
+                        cmd_suffixes = [k[4:] for k in nux_commands]
+                        closest = difflib.get_close_matches(cmd_part, cmd_suffixes, n=1, cutoff=0.6)
+                        if closest:
+                            suggested = "nux " + closest[0]
+                            if self.auto_correct_enabled:
+                                original_after_cmd = corrected_content[len(suggested):].strip()
+                                corrected_args = original_after_cmd
+                                command_func = self.commands[suggested]
+                                await command_func(message, corrected_args)
+                                try:
+                                    await message.delete()
+                                except:
+                                    pass
+                                return
+                            else:
+                                suggestion_msg = f"did you mean '{suggested}'?"
+                                if prefix_similarity < 1.0:
+                                    suggestion_msg += f" (also corrected '{first_word}' to 'nux')"
+                                await self.send_and_clean(message.channel, suggestion_msg)
+                                try:
+                                    await message.delete()
+                                except:
+                                    pass
+                                return
 
         if message.author.id == self.owner_id and not lowered.startswith("nux "):
             utilities_instance = None
@@ -597,6 +619,7 @@ class nuxified(discord.Client):
             'weather_ip_enabled': self.weather_ip_enabled,
             'webhooks': self.webhooks,
             'webhook_assignments': self.webhook_assignments,
+            'auto_correct_enabled': self.auto_correct_enabled,
         }
         try:
             with open('config.pkl', 'wb') as f:

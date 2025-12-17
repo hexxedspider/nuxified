@@ -43,7 +43,9 @@ HELP_TEXT = { # NOT USED, ONLY SO COMMANDS ARE REGISTERED
         "nux marketplace": "browse community extensions from the LLC marketplace",
         "nux marketplace info <id>": "get detailed info about a marketplace extension",
         "nux marketplace install <id>": "install a community extension",
-        "nux marketplace submit": "get invite link to submit extensions"
+        "nux marketplace submit": "get invite link to submit extensions",
+        "nux autocorrect": "toggle auto-correct for mistyped commands",
+        "nux todo <add|list|remove|clear>": "manage todo list",
     }
 }
 
@@ -104,6 +106,7 @@ class Owner:
             "- `nux burstcdm` deletes the last 5 messages sent by me in the current channel\n"
             "- `nux statustoggle` turn the status switcher on/off.\n-# Change what statuses are said in owner.py.\n"
             "- `nux webhook <set|assign|list|delete> ...`: manage webhooks for different features\n"
+            "- `nux autocorrect` toggle auto-correct for mistyped commands\n"
             
         )
         await self.bot.send_and_clean(message.channel, help_text)
@@ -1283,6 +1286,62 @@ class Owner:
             f"- Short description\n"
             f"- GitHub repository link"
         )
+
+    async def cmd_todo(self, message, command_args):
+        parts = command_args.strip().split(maxsplit=1)
+        if not parts:
+            return await self.bot.send_and_clean(message.channel, "usage: nux todo <add|list|remove|clear> [text]")
+
+        action = parts[0].lower()
+
+        if action == 'add':
+            if len(parts) < 2:
+                return await self.bot.send_and_clean(message.channel, "usage: nux todo add <item>")
+
+            item = parts[1]
+            self.bot.todo_list.append(item)
+            self.bot.save_config()
+            await self.bot.send_and_clean(message.channel, f"added todo item #{len(self.bot.todo_list)}: {item}")
+
+        elif action == 'list':
+            if not self.bot.todo_list:
+                return await self.bot.send_and_clean(message.channel, "todo list is empty")
+
+            todo_text = "todo list:\n"
+            for i, item in enumerate(self.bot.todo_list, 1):
+                todo_text += f"{i}. {item}\n"
+            await self.bot.send_and_clean(message.channel, todo_text.rstrip())
+
+        elif action == 'remove':
+            if len(parts) < 2:
+                return await self.bot.send_and_clean(message.channel, "usage: nux todo remove <number>")
+
+            try:
+                index = int(parts[1]) - 1
+                if 0 <= index < len(self.bot.todo_list):
+                    removed = self.bot.todo_list.pop(index)
+                    self.bot.save_config()
+                    await self.bot.send_and_clean(message.channel, f"removed: {removed}")
+                else:
+                    await self.bot.send_and_clean(message.channel, f"invalid index (1-{len(self.bot.todo_list)})")
+            except ValueError:
+                await self.bot.send_and_clean(message.channel, "index must be a number")
+
+        elif action == 'clear':
+            count = len(self.bot.todo_list)
+            self.bot.todo_list = []
+            self.bot.save_config()
+            await self.bot.send_and_clean(message.channel, f"cleared {count} todo items")
+
+        else:
+            await self.bot.send_and_clean(message.channel, "action must be: add, list, remove, or clear")
+
+    async def cmd_autocorrect(self, message, command_args=""):
+        if not self.check_owner(message): return
+        self.bot.auto_correct_enabled = not self.bot.auto_correct_enabled
+        self.bot.save_config()
+        status = "enabled" if self.bot.auto_correct_enabled else "disabled"
+        await self.bot.send_and_clean(message.channel, f"auto-correct {status}")
 
     async def on_member_join_handler(self, member):
         if member.guild.id in self.bot.tracked_joins:

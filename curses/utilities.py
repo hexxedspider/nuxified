@@ -46,7 +46,7 @@ HELP_TEXT = {
         "nux color <hex>": "shows color info and preview",
         "nux temperature <value> <c|f>": "convert temperature",
         "nux binary <encode|decode> <text>": "convert text to/from binary",
-        "nux todo <add|list|remove|clear>": "manage todo list",
+
         "nux steal <emoji/sticker>": "steal an emoji or sticker",
         "nux topmembers <limit>": "show most active members in channel",
         "nux ai memory <user_id>": "show ai conversation memory",
@@ -694,55 +694,6 @@ class Utilities:
 
     async def cmd_aping(self, message, command_args):
         await self.bot.send_and_clean(message.channel, f"nux base64 decode dW5kZWFkIFsyXQ==.")
-
-    async def cmd_todo(self, message, command_args):
-        parts = command_args.strip().split(maxsplit=1)
-        if not parts:
-            return await self.bot.send_and_clean(message.channel, "usage: nux todo <add|list|remove|clear> [text]")
-        
-        action = parts[0].lower()
-        
-        if action == 'add':
-            if len(parts) < 2:
-                return await self.bot.send_and_clean(message.channel, "usage: nux todo add <item>")
-            
-            item = parts[1]
-            self.bot.todo_list.append(item)
-            self.bot.save_config()
-            await self.bot.send_and_clean(message.channel, f"added todo item #{len(self.bot.todo_list)}: {item}")
-        
-        elif action == 'list':
-            if not self.bot.todo_list:
-                return await self.bot.send_and_clean(message.channel, "todo list is empty")
-            
-            todo_text = "todo list:\n"
-            for i, item in enumerate(self.bot.todo_list, 1):
-                todo_text += f"{i}. {item}\n"
-            await self.bot.send_and_clean(message.channel, todo_text.rstrip())
-        
-        elif action == 'remove':
-            if len(parts) < 2:
-                return await self.bot.send_and_clean(message.channel, "usage: nux todo remove <number>")
-            
-            try:
-                index = int(parts[1]) - 1
-                if 0 <= index < len(self.bot.todo_list):
-                    removed = self.bot.todo_list.pop(index)
-                    self.bot.save_config()
-                    await self.bot.send_and_clean(message.channel, f"removed: {removed}")
-                else:
-                    await self.bot.send_and_clean(message.channel, f"invalid index (1-{len(self.bot.todo_list)})")
-            except ValueError:
-                await self.bot.send_and_clean(message.channel, "index must be a number")
-        
-        elif action == 'clear':
-            count = len(self.bot.todo_list)
-            self.bot.todo_list = []
-            self.bot.save_config()
-            await self.bot.send_and_clean(message.channel, f"cleared {count} todo items")
-        
-        else:
-            await self.bot.send_and_clean(message.channel, "action must be: add, list, remove, or clear")
 
     async def cmd_steal(self, message, command_args):
         if message.stickers:
