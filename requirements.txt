@@ -1,4 +1,4 @@
-discord.py
+discord.py-self
 aiohttp
 requests
 yt_dlp
@@ -15,7 +15,6 @@ psutil
 googletrans==4.0.0-rc1
 alexflipnote.py
 watchdog
-audioop-lts
 matplotlib
 customtkinter
 simpleeval
