@@ -769,6 +769,7 @@ class Owner:
 
                 self.bot.autoowod_time = time_str
                 self.bot.autoowod_channel = channel
+                self.bot.save_config()
                 if self.bot.autoowod_task and not self.bot.autoowod_task.done():
                     await self.bot.send_and_clean(message.channel, "autoowod already running")
                     return
@@ -789,6 +790,7 @@ class Owner:
                 self.bot.autoowod_task = None
                 self.bot.autoowod_time = None
                 self.bot.autoowod_channel = None
+                self.bot.save_config()
                 await self.bot.send_and_clean(message.channel, "autoowod stopped")
 
         else:
