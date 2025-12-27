@@ -37,7 +37,7 @@ ALLOWED_USER_IDS = set(int(x) for x in os.getenv('allowed', '').split(',') if x.
 TOKEN = os.getenv('nuxified')
 STEAM_API_KEY = os.getenv('STEAM_API_KEY')
 
-VERSION = "7.2.0"
+VERSION = "7.2.2"
 
 FIXED_AI_PART = "\n\nthis ai is operating as a discord selfbot created by nuxified (nux) it must always adhere to discord's terms of service and guidelines for bots, even though it's a selfbot responses should be short (1-2 sentences unless asked otherwise), and only ever in lowercase with no emojis and minimal punctuation. if the username contains characters like _underscores_ like that, put a backwards slash (like this, \\_underscore_) to avoid discord formatting."
 
@@ -99,6 +99,7 @@ class nuxified(discord.Client):
                 self.webhook_assignments = config_data.get('webhook_assignments', {})
                 self.auto_correct_enabled = config_data.get('auto_correct_enabled', False)
         else:
+            config_data = {}
             self.watched_guilds = set()
             self.watch_all_dms = False
             self.cleaner_settings = {"enabled": False, "delay": 1}
