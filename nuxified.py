@@ -220,19 +220,20 @@ class nuxified(discord.Client):
         return decorator
 
     async def on_ready(self):
-        self.start_time = datetime.datetime.utcnow()
+        self.start_time = datetime.datetime.now(datetime.timezone.utc)
         self.owner_id = self.user.id
         # this is how i use to have my status cycle, but that new command does it for me
         # self.status_task = self.loop.create_task(self.change_status_periodically())
         print(f"{datetime.datetime.now()}")
-        print(f"{self.user}")
+        print(f"Logged in as {self.user} (ID: {self.owner_id})")
+        print(f"Loaded {len(self.commands)} commands")
 
         embed = {
             "title": "Bot Loaded",
             "description": f"Nuxified v{self.VERSION} has started successfully",
             "color": 0x00ff00,
-            "timestamp": datetime.datetime.utcnow().isoformat(),
-            "footer": {"text": f"User: {self.user}"}
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "footer": {"text": f"User: {self.user} | Cmds: {len(self.commands)}"}
         }
         payload = {
             "username": "Nuxified",
@@ -306,6 +307,8 @@ class nuxified(discord.Client):
                         return
 
         if not matched_command_key:
+            if lowered.startswith("nux "):
+                 print(f"[DEBUG] Unknown command or prefix match failed: {lowered}")
             words = lowered.split()
             if words:
                 first_word = words[0]
