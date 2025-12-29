@@ -163,3 +163,45 @@ if ('IntersectionObserver' in window) {
         imageObserver.observe(img);
     });
 }
+
+// Donation Toast Functionality
+document.addEventListener('DOMContentLoaded', () => {
+    const toast = document.getElementById('donation-toast');
+    const neverShowKey = 'donation-toast-never-show';
+
+    // Check if user has opted out
+    if (localStorage.getItem(neverShowKey) === 'true') {
+        return;
+    }
+
+    // Show toast after a short delay
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 2000);
+
+    // Auto-hide after 20 seconds
+    setTimeout(() => {
+        if (toast.classList.contains('show')) {
+            closeToast();
+        }
+    }, 22000); // 20 seconds + initial delay
+});
+
+function closeToast() {
+    const toast = document.getElementById('donation-toast');
+    toast.classList.remove('show');
+    setTimeout(() => {
+        toast.style.display = 'none';
+    }, 300);
+}
+
+function neverShowAgain() {
+    const toast = document.getElementById('donation-toast');
+    const neverShowKey = 'donation-toast-never-show';
+
+    // Store preference in localStorage
+    localStorage.setItem(neverShowKey, 'true');
+
+    // Hide toast
+    closeToast();
+}

@@ -59,7 +59,7 @@
                         <div class="stat-label">Commands</div>
                     </div>
                     <div class="stat">
-                        <div class="stat-number">v7.2.0</div>
+                        <div class="stat-number">v7.2.3-debug_on_ready</div>
                         <div class="stat-label">Latest Version</div>
                     </div>
                     <div class="stat">
@@ -564,6 +564,22 @@
             </div>
         </div>
     </footer>
+
+    <!-- Donation Toast -->
+    <div id="donation-toast" class="toast">
+        <div class="toast-content">
+            <div class="toast-text">
+                <strong>Support the Developer</strong>
+                <p>Would you like to donate on Cash App?</p>
+            </div>
+            <div class="toast-actions">
+                <a href="https://cash.app/$ryningami" target="_blank" class="toast-btn toast-donate">Donate</a>
+                <button class="toast-btn toast-close" onclick="closeToast()">Close</button>
+                <button class="toast-btn toast-never" onclick="neverShowAgain()">Never Show Again</button>
+            </div>
+        </div>
+        <button class="toast-x" onclick="closeToast()">&times;</button>
+    </div>
 
     <script src="script.js"></script>
 </body>

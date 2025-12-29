@@ -6,20 +6,17 @@
 # renamed from .envv
 .env
 
-ai_config.pkl
-config.pkl
+*config.pkl
 
 # watch command logs
 **/logs
 
-**/__pycache__
-**/other_accounts
+__pycache__
+other_accounts
 
 todo
 ideas
 slowburn_stories/
-
-**/docs/update_stats.py
 
 .env_backup*
 
@@ -29,4 +26,4 @@ affix_settings.json
 # marketplace submission bot: https://discord.gg/DH2KHqS2hq
 mp_sub.py
 
-docs
+website

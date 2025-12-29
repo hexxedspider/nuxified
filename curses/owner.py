@@ -913,8 +913,8 @@ class Owner:
             "i have a ai responder, just ping me", #26
             "@headlessryn on instagram <3", #27
             "hexxedspider.github.io", #28
-            "headlessryn.github.io (peep the tos)", #29
-            "nukumoxy.netlify.app for errors", #30
+            "eyesore.surge.sh", #29
+            "nuxified.surge.sh", #30
             "bruh", #31
             "this account is on github", #32
             "github.com/hexxedspider/nuxified", #33
@@ -956,7 +956,8 @@ class Owner:
             "love, i cant ignore you", #69
             "do anything for you", #70
             "spotify.com/playlist/7t0InrUUJIlkExhF6b2r4B?si=03052a278395491f", #71
-            "as of nov 15th my status changes every 30 seconds" #72
+            "as of nov 15th my status changes every 30 seconds", #72
+            "i love femboys i am one indeed.", #73
         ]
         while True:
             new_status = self.bot.rand.choice(status_messages)
