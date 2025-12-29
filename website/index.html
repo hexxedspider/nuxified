@@ -16,18 +16,38 @@
     <nav class="navbar">
         <div class="container">
             <div class="nav-brand">
-                <img src="./assets/nuxified_icon.png" alt="Nuxified" class="logo-icon">
+                <img src="https://raw.githubusercontent.com/hexxedspider/nuxified/main/assets/nuxified_icon.png"
+                    alt="Nuxified" class="logo-icon">
             </div>
             <ul class="nav-menu">
                 <li><a href="#features" class="nav-link">Features</a></li>
                 <li><a href="#commands" class="nav-link">Commands</a></li>
                 <li><a href="#launcher" class="nav-link">Launcher</a></li>
-                <li><a href="./credits/credits.html" class="nav-link">Credits</a></li>
+                <li><a href="https://nuxified.surge.sh/credits/" class="nav-link">Credits</a></li>
                 <li><a href="#setup" class="nav-link">Setup</a></li>
                 <li><a href="https://github.com/hexxedspider/nuxified" target="_blank"
                         class="nav-link btn-github">GitHub</a></li>
             </ul>
+
+            <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
         </div>
+    </nav>
+
+    <nav class="mobile-menu" id="mobile-menu">
+        <ul class="nav-menu">
+            <li><a href="#features" class="nav-link" onclick="closeMobileMenu()">Features</a></li>
+            <li><a href="#commands" class="nav-link" onclick="closeMobileMenu()">Commands</a></li>
+            <li><a href="#launcher" class="nav-link" onclick="closeMobileMenu()">Launcher</a></li>
+            <li><a href="https://nuxified.surge.sh/credits/" class="nav-link" onclick="closeMobileMenu()">Credits</a>
+            </li>
+            <li><a href="#setup" class="nav-link" onclick="closeMobileMenu()">Setup</a></li>
+            <li><a href="https://github.com/hexxedspider/nuxified" target="_blank" class="nav-link btn-github"
+                    onclick="closeMobileMenu()">GitHub</a></li>
+        </ul>
     </nav>
 
     <section class="hero">
@@ -38,7 +58,8 @@
                     <br>A Discord selfbot that cares.
                 </h1>
                 <p class="hero-subtitle">
-                    A feature-packed, self-hosted, <i>safe</i> Discord selfbot with 110+ commands, free AI integration,
+                    A feature-packed, self-hosted, <i>safe</i> Discord selfbot with 110+ commands, free AI
+                    integration,
                     and extensive utility features. Built for users who demand more, by a user that demands more.
                 </p>
                 <div class="hero-buttons">
@@ -90,7 +111,8 @@
                         </svg>
                     </div>
                     <h3>AI Integration</h3>
-                    <p>Free AI-powered replies using OpenRouter API. Custom personalities, preset saving, and automatic
+                    <p>Free AI-powered replies using OpenRouter API. Custom personalities, preset saving, and
+                        automatic
                         DM responses.</p>
                 </div>
 
@@ -102,7 +124,8 @@
                         </svg>
                     </div>
                     <h3>110+ Commands</h3>
-                    <p>A large library of commands that cover a wide range of utilities and features, and maybe took me
+                    <p>A large library of commands that cover a wide range of utilities and features, and maybe took
+                        me
                         too long to write.</p>
                 </div>
 
@@ -128,7 +151,8 @@
                         </svg>
                     </div>
                     <h3>Media Downloads</h3>
-                    <p>Download videos and audio from YouTube, TikTok, Pinterest, Twitter, Instagram, and Reddit, with
+                    <p>Download videos and audio from YouTube, TikTok, Pinterest, Twitter, Instagram, and Reddit,
+                        with
                         more being added (currently restricted, but it's getting a rewrite soon).</p>
                 </div>
 
@@ -142,8 +166,10 @@
                         </svg>
                     </div>
                     <h3>Safeness</h3>
-                    <p>Entirely safe script that you can run (if not considering Discord ToS), completely documented,
-                        and up for <i>your</i> eyes to see and judge. I included my own socials lower to prove I'm not
+                    <p>Entirely safe script that you can run (if not considering Discord ToS), completely
+                        documented,
+                        and up for <i>your</i> eyes to see and judge. I included my own socials lower to prove I'm
+                        not
                         random lol.</p>
                 </div>
 
@@ -155,7 +181,8 @@
                         </svg>
                     </div>
                     <h3>GUI Launcher</h3>
-                    <p>Dark-themed launcher with bot and system stats, easier configuration, and one-click bot startup,
+                    <p>Dark-themed launcher with bot and system stats, easier configuration, and one-click bot
+                        startup,
                         with a easy to understand interface.</p>
                 </div>
             </div>
@@ -395,8 +422,10 @@
                 </svg>
                 <div>
                     <h4>Disclaimer</h4>
-                    <p>Discord selfbots violate their Terms of Service. Use at your own risk. Never share your Discord
-                        token. By using this script, you risk account termination. I am not responsible for any damage
+                    <p>Discord selfbots violate their Terms of Service. Use at your own risk. Never share your
+                        Discord
+                        token. By using this script, you risk account termination. I am not responsible for any
+                        damage
                         caused by this script, nor am I responsible for any actions against your account..</p>
                 </div>
             </div>
@@ -406,8 +435,10 @@
     <section id="connect" class="connect">
         <div class="container">
             <h2 class="section-title">Social Links</h2>
-            <p class="section-subtitle">Stalk me on other socials, or just ignore it. My DMs are open everywhere, same
-                for friend requests. Don't be afraid to reach out if you have a question! I'm here to help, not scold.
+            <p class="section-subtitle">Stalk me on other socials, or just ignore it. My DMs are open everywhere,
+                same
+                for friend requests. Don't be afraid to reach out if you have a question! I'm here to help, not
+                scold.
             </p>
 
             <div class="social-grid">
@@ -504,7 +535,8 @@
 
                 <a href="t.me/hexxedspider" target="_blank" class="social-card telegram">
                     <div class="social-icon">
-                        <img src="./assets/telegram.png" alt="Telegram" class="social-icon">
+                        <img src="https://raw.githubusercontent.com/hexxedspider/nuxified/main/assets/telegram.png"
+                            alt="Telegram" class="social-icon">
                     </div>
                     <div class="social-info">
                         <h3>Telegram</h3>
@@ -515,7 +547,8 @@
                 <a href="https://signal.me/#eu/wO3T_x1P5ObIp056AZ7_c12PPCrMq_-wHxLpxmFXRbYX4gickc9Nu5KSYV6Tj6n5"
                     target="_blank" class="social-card signal">
                     <div class="social-icon">
-                        <img src="./assets/signal.png" alt="Signal" class="social-icon">
+                        <img src="https://raw.githubusercontent.com/hexxedspider/nuxified/main/assets/signal.png"
+                            alt="Signal" class="social-icon">
                     </div>
                     <div class="social-info">
                         <h3>Signal</h3>
@@ -532,7 +565,8 @@
                 <div class="footer-brand">
                     <p>Discord Selfbot, made by yungpharaoh, for you.</p>
                     <div class="footer-logo">
-                        <img src="./assets/nuxified_banner.png" alt="Nuxified" class="footer-icon">
+                        <img src="https://raw.githubusercontent.com/hexxedspider/nuxified/main/assets/nuxified_banner.png"
+                            alt="Nuxified" class="footer-icon">
                     </div>
                 </div>
                 <div class="footer-links">
@@ -542,7 +576,8 @@
                             <li><a href="https://github.com/hexxedspider/nuxified" target="_blank">GitHub</a></li>
                             <li><a href="https://github.com/hexxedspider/nuxified/wiki"
                                     target="_blank">Documentation</a></li>
-                            <li><a href="https://github.com/hexxedspider/nuxified/issues" target="_blank">Report Bug</a>
+                            <li><a href="https://github.com/hexxedspider/nuxified/issues" target="_blank">Report
+                                    Bug</a>
                             </li>
                         </ul>
                     </div>

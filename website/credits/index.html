@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Credits - Nuxified</title>
-    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="credits.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,14 +17,29 @@
     <nav class="navbar">
         <div class="container">
             <div class="nav-brand">
-                <img src="../../assets/nuxified_icon.png" alt="Nuxified" class="logo-icon">
+                <img src="https://raw.githubusercontent.com/hexxedspider/nuxified/main/assets/nuxified_icon.png"
+                    alt="Nuxified" class="logo-icon">
             </div>
             <ul class="nav-menu">
-                <li><a href="../index.html" class="nav-link">Home</a></li>
+                <li><a href="https://nuxified.surge.sh" class="nav-link">Home</a></li>
                 <li><a href="https://github.com/hexxedspider/nuxified" target="_blank"
                         class="nav-link btn-github">GitHub</a></li>
             </ul>
+
+            <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
         </div>
+    </nav>
+
+    <nav class="mobile-menu" id="mobile-menu">
+        <ul class="nav-menu">
+            <li><a href="https://nuxified.surge.sh" class="nav-link" onclick="closeMobileMenu()">Home</a></li>
+            <li><a href="https://github.com/hexxedspider/nuxified" target="_blank" class="nav-link btn-github"
+                    onclick="closeMobileMenu()">GitHub</a></li>
+        </ul>
     </nav>
 
     <section class="hero">
@@ -120,7 +135,8 @@
             <div class="footer-content">
                 <div class="footer-brand">
                     <div class="footer-logo">
-                        <img src="../../assets/nuxified_banner.png" alt="Nuxified" class="footer-icon">
+                        <img src="https://raw.githubusercontent.com/hexxedspider/nuxified/main/assets/nuxified_banner.png"
+                            alt="Nuxified" class="footer-icon">
                     </div>
                     <p>Discord Selfbot, made by yungpharaoh, for you.</p>
                 </div>
@@ -154,7 +170,23 @@
         </div>
     </footer>
 
-    <script src="../script.js"></script>
+    <!-- Donation Toast -->
+    <div id="donation-toast" class="toast">
+        <div class="toast-content">
+            <div class="toast-text">
+                <strong>Support the Developer</strong>
+                <p>Would you like to donate on Cash App?</p>
+            </div>
+            <div class="toast-actions">
+                <a href="https://cash.app/$ryningami" target="_blank" class="toast-btn toast-donate">Donate</a>
+                <button class="toast-btn toast-close" onclick="closeToast()">Close</button>
+                <button class="toast-btn toast-never" onclick="neverShowAgain()">Never Show Again</button>
+            </div>
+        </div>
+        <button class="toast-x" onclick="closeToast()">&times;</button>
+    </div>
+
+    <script src="script.js"></script>
 </body>
 
 </html>

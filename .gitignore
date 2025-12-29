@@ -26,4 +26,5 @@ affix_settings.json
 # marketplace submission bot: https://discord.gg/DH2KHqS2hq
 mp_sub.py
 
-website
+CNAME
+site.bat
