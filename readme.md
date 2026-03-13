@@ -1,3 +1,7 @@
+# GIT
+
+all new releases // updates are being pushed to Codeberg, that's why it doesn't say it's been updated at all. [here's the link.](https://www.codeberg.org/hexxedspider/nuxified)
+
 # Nuxified - Custom Discord Selfbot
 
 A comprehensive, self-hosted Discord selfbot written in Python, designed for personal use with extensive utility features and AI integration. The bot provides text manipulation, media downloading, NSFW content fetching, automated responses, and more.
