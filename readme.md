@@ -1,3 +1,7 @@
+# ARCHIVES
+
+this project is currently going on hiatus, as it's already been for the last couple months. it's slow, the codebase feels weird to me, and there are just so many improvements to be made. i'll get around to rewriting it.. eventually, but until then, either use the bot as it is or find a different one.
+
 # GIT
 
 all new releases // updates are being pushed to Codeberg, that's why it doesn't say it's been updated at all. [here's the link.](https://www.codeberg.org/hexxedspider/nuxified)
